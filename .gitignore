@@ -1,0 +1,60 @@
+# StellarSend — .gitignore
+# Stack: Next.js 14 on Cloudflare Pages + Hono on Cloudflare Workers
+#         + Turso/libSQL + Drizzle ORM + pnpm/Turborepo
+
+# ── Dependencies ─────────────────────────────
+node_modules/
+
+# ── Build / type output ─────────────────────
+.next/
+out/
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+
+# Cloudflare Pages (next-on-pages reuses the Vercel Build Output format)
+.vercel/
+
+# ── Cloudflare Workers / Wrangler ──────────
+# .wrangler/ = miniflare state + local bindings cache
+# .dev.vars   = local secrets for wrangler dev (DO NOT COMMIT)
+.wrangler/
+.dev.vars
+
+# ── Local database (Turso / libSQL) ─────────
+# Dev DB is a local file (TURSO_URL=file:./local.db per spec §10)
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.sqlite3-journal
+local.db
+
+# ── Env / secrets ───────────────────────────
+.env
+.env.local
+.env.*.local
+# .env.example stays tracked (template only — no real secrets)
+
+# ── Logs ─────────────────────────────────────
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+
+# ── Test / coverage ─────────────────────────
+coverage/
+.nyc_output/
+
+# ── Editor / OS ───────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+
+# ── Misc credentials (e.g. exported Stellar keypairs) ──
+*.pem
+*.key
