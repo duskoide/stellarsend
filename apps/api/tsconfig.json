@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["@cloudflare/workers-types"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "hono/jsx",
+    "noEmit": true,
+    "rootDir": ".",
+    "paths": {
+      "@stellarsend/shared": ["../../packages/shared/src/index.ts"],
+      "@stellarsend/shared/*": ["../../packages/shared/src/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "drizzle/**/*.ts", "worker-configuration.d.ts"]
+}

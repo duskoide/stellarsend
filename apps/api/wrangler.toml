@@ -1,0 +1,37 @@
+name = "stellarsend-api"
+main = "src/index.ts"
+compatibility_date = "2024-12-05"
+
+# Required so @stellar/stellar-sdk (ed25519 Keypair, Buffer) runs in the V8 isolate.
+compatibility_flags = ["nodejs_compat"]
+
+# ── Non-secret vars (secrets go in .dev.vars locally / `wrangler secret put` in prod) ──
+[vars]
+HORIZON_URL = "https://horizon-testnet.stellar.org"
+STELLAR_NETWORK = "TESTNET"
+
+# ── Cloudflare Queues (async settlement + payout) ──
+[[queues.producers]]
+binding = "QUEUE_SETTLEMENT"
+queue = "stellarsend-settlement"
+
+[[queues.producers]]
+binding = "QUEUE_PAYOUT"
+queue = "stellarsend-payout"
+
+[[queues.consumers]]
+queue = "stellarsend-settlement"
+max_batch_size = 10
+max_retries = 5
+
+[[queues.consumers]]
+queue = "stellarsend-payout"
+max_batch_size = 10
+max_retries = 5
+
+# ── Cron Trigger: reconcile stuck transfers ──
+[triggers]
+crons = ["*/2 * * * *"]
+
+# NOTE: Turso is accessed over HTTP via @libsql/client using TURSO_URL/TURSO_AUTH_TOKEN
+# (set as secrets), so no D1 binding is needed.

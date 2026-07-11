@@ -1,0 +1,18 @@
+{
+  "name": "stellarsend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cross-border remittance on Stellar — APAC Stellar Hackathon 2026",
+  "packageManager": "pnpm@9.12.0",
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "web": "pnpm --filter web",
+    "api": "pnpm --filter api"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}
