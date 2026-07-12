@@ -74,6 +74,16 @@ export default function StatusPage({ params }: { params: { id: string } }) {
         </Card>
       )}
 
+      {/* Hand off to the recipient's view. Keeps the demo flowing without typing URLs. */}
+      {!done && (
+        <a
+          href={`/claim/${transfer.id}`}
+          className="rounded-md border border-input px-4 py-3 text-center text-sm font-medium hover:bg-muted"
+        >
+          Open recipient&apos;s view →
+        </a>
+      )}
+
       <Card className="space-y-2">
         <CardTitle>Timeline</CardTitle>
         <ul className="space-y-1.5 text-sm">
