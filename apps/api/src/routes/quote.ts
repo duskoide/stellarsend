@@ -1,11 +1,19 @@
-// Quote route: compute rate + fee via Horizon strict-receive paths.
+// Quote route: real rate discovery via Horizon strict-SEND paths.
+//
+// Direction matters: the sender knows how much they want to SPEND (e.g. 100 USDC) and
+// asks how much IDR arrives. That is strictSendPaths(sourceAsset, sourceAmount, [destAsset]).
+// (strictReceivePaths is the inverse — used at submit time, where destAmount is locked.)
+//
+// There is deliberately NO hardcoded fallback rate. If the DEX has no path, we fail loudly:
+// a quote the user can't actually execute is worse than an error (it fails at submit instead,
+// after they've committed). Seed the order book — see drizzle/seed-stellar.ts.
 
 import { Hono } from "hono";
 import Decimal from "decimal.js";
 import type { AppContext } from "../env.js";
 import { createDb, schema } from "../db/client.js";
 import { assetFromCode } from "../stellar/assets.js";
-import { findBestPath } from "../stellar/pathPayment.js";
+import { server } from "../stellar/horizon.js";
 import { badRequest } from "../utils/errors.js";
 import { id } from "../utils/id.js";
 import { QUOTE_TTL_MS, STELLAR_DECIMALS } from "@stellarsend/shared/constants";
@@ -13,7 +21,7 @@ import type { Quote, QuoteRequest } from "@stellarsend/shared";
 
 const quote = new Hono<AppContext>();
 
-// Flat demo fee (0.5%). Real pricing/spread handled by BE1 later.
+// Our spread/fee, taken on the source side before hitting the DEX (0.5% demo rate).
 const FEE_RATE = new Decimal("0.005");
 
 quote.post("/", async (c) => {
@@ -22,30 +30,49 @@ quote.post("/", async (c) => {
     throw badRequest("sourceAsset, sourceAmount, destAsset are required");
   }
 
+  const source = new Decimal(body.sourceAmount);
+  if (!source.isFinite() || source.lte(0)) {
+    throw badRequest("sourceAmount must be a positive number");
+  }
+
   const sendAsset = assetFromCode(body.sourceAsset, c.env);
   const destAsset = assetFromCode(body.destAsset, c.env);
 
-  // Use source amount as sendMax to discover a destination amount via best path.
-  // NOTE: this is a strict-SEND style estimate for the quote; submit uses
-  // strict-receive with the locked destAmount. BE1 to refine.
-  const path = await findBestPath(
-    c.env,
-    sendAsset,
-    destAsset,
-    // placeholder destAmount for discovery; refined by BE1 with strictSendPaths
-    body.sourceAmount,
-  ).catch(() => undefined);
-
-  const source = new Decimal(body.sourceAmount);
+  // Fee comes off the top; only the remainder is actually routed through the DEX.
   const fee = source.mul(FEE_RATE);
   const netSource = source.minus(fee);
 
-  // Fallback demo rate if no path found on testnet (thin liquidity).
-  const rate = path
-    ? new Decimal(path.destination_amount).div(path.source_amount)
-    : new Decimal("15870");
+  // Ask Horizon: spending `netSource` of sendAsset, how much destAsset arrives?
+  let records;
+  try {
+    const res = await server(c.env)
+      .strictSendPaths(sendAsset, netSource.toFixed(STELLAR_DECIMALS), [destAsset])
+      .call();
+    records = res.records;
+  } catch (err: any) {
+    throw badRequest(
+      "Could not reach Horizon for path discovery",
+      err?.message ?? String(err),
+    );
+  }
 
-  const destAmount = netSource.mul(rate);
+  // Best = most destination received for the same spend.
+  const best = records
+    .slice()
+    .sort((a, b) => new Decimal(b.destination_amount).comparedTo(new Decimal(a.destination_amount)))[0];
+
+  if (!best) {
+    // No liquidity → no executable quote. Never invent a rate here.
+    throw badRequest(
+      `No path ${body.sourceAsset} → ${body.destAsset} for ${body.sourceAmount}. ` +
+        `The DEX order book has no route — seed it (drizzle/seed-stellar.ts) or lower the amount.`,
+    );
+  }
+
+  const destAmount = new Decimal(best.destination_amount);
+  // Effective end-to-end rate the user actually gets (after our fee) — this is the honest
+  // number to show: destAmount per 1 unit of GROSS source, not of netSource.
+  const rate = destAmount.div(source);
 
   const row = {
     id: id("clq"),

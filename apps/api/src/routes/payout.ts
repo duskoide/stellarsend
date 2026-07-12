@@ -29,7 +29,7 @@ payout.get("/:id", async (c) => {
   });
 });
 
-// POST /claims/:id/payout — select method, trigger anchor withdraw (mock).
+// POST /claims/:id/payout — receiver selects method → anchor withdraw → COMPLETED.
 payout.post("/:id/payout", async (c) => {
   const body = await c.req.json<PayoutRequest>();
   if (!body.method) throw badRequest("method required");
@@ -42,16 +42,29 @@ payout.post("/:id/payout", async (c) => {
     .get();
   if (!row) throw notFound("Claim not found");
 
+  // Idempotent: claiming twice is a no-op, not a double payout.
+  if (row.status === "COMPLETED") {
+    return c.json({ ok: true, status: "COMPLETED", alreadyPaid: true });
+  }
+
+  // Only disburse money that actually landed on-chain. Claiming a transfer that hasn't
+  // settled would pay out fiat against funds that may never arrive.
+  if (row.status !== "SETTLED" && row.status !== "PAYOUT_PENDING") {
+    throw badRequest(
+      `Not claimable yet — transfer is ${row.status}, waiting for on-chain settlement`,
+    );
+  }
+
   await db
     .update(schema.transfers)
     .set({ status: "PAYOUT_PENDING", payoutMethod: body.method, updatedAt: new Date() })
     .where(eq(schema.transfers.id, tid));
   await recordEvent(db, tid, "PAYOUT_PENDING", `Payout requested via ${body.method}`);
 
-  // TODO(INFRA/BE3): enqueue payout job → mock anchor withdraw → webhook completes.
+  // Anchor withdraw runs async on the queue → writes COMPLETED.
   await c.env.QUEUE_PAYOUT.send({ transferId: tid, method: body.method });
 
-  return c.json({ ok: true });
+  return c.json({ ok: true, status: "PAYOUT_PENDING" });
 });
 
 export default payout;

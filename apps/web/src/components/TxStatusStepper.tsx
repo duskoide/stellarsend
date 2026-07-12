@@ -1,44 +1,112 @@
+"use client";
+
 import clsx from "clsx";
 import { TRANSFER_STEPS } from "@stellarsend/shared/constants";
-import type { TransferStatus } from "@stellarsend/shared";
+import type { TransferStatus, TransferEvent } from "@stellarsend/shared";
 
 const LABELS: Record<string, string> = {
   PENDING: "Created",
   FUNDED: "Funded",
-  SUBMITTED: "Submitted",
+  SUBMITTED: "Submitted to Stellar",
   SETTLED: "Settled on-chain",
-  PAYOUT_PENDING: "Payout pending",
-  COMPLETED: "Completed",
+  PAYOUT_PENDING: "Payout in progress",
+  COMPLETED: "Money delivered",
 };
 
-export function TxStatusStepper({ status }: { status: TransferStatus }) {
+const HINTS: Record<string, string> = {
+  PENDING: "Transfer created from a locked quote",
+  FUNDED: "Sender's funds received",
+  SUBMITTED: "Path payment broadcast to the network",
+  SETTLED: "Confirmed in a Stellar ledger — irreversible",
+  PAYOUT_PENDING: "Anchor disbursing to the bank / e-wallet",
+  COMPLETED: "Recipient has the funds",
+};
+
+export function TxStatusStepper({
+  status,
+  events = [],
+}: {
+  status: TransferStatus;
+  events?: TransferEvent[];
+}) {
   if (status === "FAILED" || status === "REFUNDED") {
+    // Show the real reason — a silent failure is the worst thing to demo.
+    const last = [...events].reverse().find((e) => e.status === status);
     return (
-      <div className="rounded-md bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-        Transfer {status.toLowerCase()}
+      <div className="space-y-1 rounded-md border border-red-200 bg-red-50 px-4 py-3">
+        <p className="text-sm font-semibold text-red-700">
+          Transfer {status === "FAILED" ? "failed" : "refunded"}
+        </p>
+        {last?.message && <p className="text-xs text-red-600">{last.message}</p>}
       </div>
     );
   }
 
   const currentIdx = TRANSFER_STEPS.indexOf(status);
+  // Timestamp per step, from the append-only event log.
+  const timeOf = (step: string) => {
+    const e = events.find((ev) => ev.status === step);
+    return e ? new Date(e.createdAt).toLocaleTimeString() : null;
+  };
 
   return (
-    <ol className="flex flex-col gap-3">
+    <ol className="relative flex flex-col">
       {TRANSFER_STEPS.map((step, idx) => {
-        const done = idx <= currentIdx;
+        const done = idx < currentIdx;
+        const active = idx === currentIdx;
+        const last = idx === TRANSFER_STEPS.length - 1;
+        const ts = timeOf(step);
+
         return (
-          <li key={step} className="flex items-center gap-3">
+          <li key={step} className="relative flex gap-3 pb-5 last:pb-0">
+            {/* connector */}
+            {!last && (
+              <span
+                aria-hidden
+                className={clsx(
+                  "absolute left-[11px] top-6 h-full w-px",
+                  done ? "bg-primary" : "bg-muted",
+                )}
+              />
+            )}
+
             <span
               className={clsx(
-                "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
-                done ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
+                "relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
+                done && "bg-primary text-primary-foreground",
+                active && "bg-primary text-primary-foreground ring-4 ring-primary/20",
+                !done && !active && "bg-muted text-muted-foreground",
               )}
             >
-              {idx + 1}
+              {done ? "✓" : idx + 1}
             </span>
-            <span className={clsx("text-sm", done ? "font-medium" : "text-muted-foreground")}>
-              {LABELS[step] ?? step}
-            </span>
+
+            <div className="min-w-0 flex-1 pt-0.5">
+              <div className="flex items-baseline justify-between gap-2">
+                <span
+                  className={clsx(
+                    "text-sm",
+                    done && "font-medium",
+                    active && "font-semibold",
+                    !done && !active && "text-muted-foreground",
+                  )}
+                >
+                  {LABELS[step] ?? step}
+                </span>
+                {ts && <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{ts}</span>}
+              </div>
+
+              {/* Only the active step explains itself — keeps the list scannable. */}
+              {active && (
+                <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
+                  </span>
+                  {HINTS[step]}
+                </p>
+              )}
+            </div>
           </li>
         );
       })}
