@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "drizzle:generate": "drizzle-kit generate",
     "drizzle:push": "drizzle-kit push",
-    "db:seed": "tsx src/../drizzle/seed.ts"
+    "db:seed": "tsx drizzle/seed-stellar.ts",
+    "db:seed:old": "tsx src/../drizzle/seed.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",
