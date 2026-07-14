@@ -7,8 +7,6 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { api, getToken } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
-import type { PayoutMethod } from "@stellarsend/shared/constants";
-
 export default function ClaimPage({ params }: { params: { id: string } }) {
   const router = useRouter();
 
@@ -17,7 +15,6 @@ export default function ClaimPage({ params }: { params: { id: string } }) {
     if (!getToken()) router.push(`/auth/login?next=/claim/${params.id}`);
   }, [router, params.id]);
 
-  const [method, setMethod] = useState<PayoutMethod>("BANK_TRANSFER");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +33,7 @@ export default function ClaimPage({ params }: { params: { id: string } }) {
     setError(null);
     setSubmitting(true);
     try {
-      await api.claims.payout(params.id, { method });
+      await api.claims.payout(params.id, { method: "BANK_TRANSFER" });
       // Don't fake success — let polling report the real status.
     } catch (err) {
       setError(err instanceof Error ? err.message : "Payout request failed");
@@ -107,32 +104,9 @@ export default function ClaimPage({ params }: { params: { id: string } }) {
 
         {claimable && (
           <>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">
-                How would you like to receive it?
-              </label>
-              <div className="flex gap-2">
-                <Button
-                  className="flex-1"
-                  variant={method === "BANK_TRANSFER" ? "primary" : "secondary"}
-                  onClick={() => setMethod("BANK_TRANSFER")}
-                >
-                  Bank transfer
-                </Button>
-                <Button
-                  className="flex-1"
-                  variant={method === "EWALLET" ? "primary" : "secondary"}
-                  onClick={() => setMethod("EWALLET")}
-                >
-                  E-wallet
-                </Button>
-              </div>
-            </div>
-
             {error && <p className="text-sm text-red-600">{error}</p>}
-
             <Button className="w-full" onClick={handlePayout} disabled={submitting}>
-              {submitting ? "Requesting…" : "Claim now"}
+              {submitting ? "Requesting…" : "Claim to bank account"}
             </Button>
           </>
         )}
