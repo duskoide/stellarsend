@@ -3,6 +3,7 @@
 import clsx from "clsx";
 import { TRANSFER_STEPS } from "@stellarsend/shared/constants";
 import type { TransferStatus, TransferEvent } from "@stellarsend/shared";
+import { Alert } from "@/components/ui/alert";
 
 const LABELS: Record<string, string> = {
   PENDING: "Created",
@@ -33,12 +34,12 @@ export function TxStatusStepper({
     // Show the real reason — a silent failure is the worst thing to demo.
     const last = [...events].reverse().find((e) => e.status === status);
     return (
-      <div className="space-y-1 rounded-md border border-red-200 bg-red-50 px-4 py-3">
-        <p className="text-sm font-semibold text-red-700">
+      <Alert variant="danger" className="space-y-1">
+        <p className="font-semibold">
           Transfer {status === "FAILED" ? "failed" : "refunded"}
         </p>
-        {last?.message && <p className="text-xs text-red-600">{last.message}</p>}
-      </div>
+        {last?.message && <p className="text-xs opacity-90">{last.message}</p>}
+      </Alert>
     );
   }
 
@@ -99,8 +100,8 @@ export function TxStatusStepper({
               {/* Only the active step explains itself — keeps the list scannable. */}
               {active && (
                 <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+                  <span className="relative flex h-1.5 w-1.5" aria-hidden>
+                    <span className="absolute inline-flex h-full w-full motion-safe:animate-ping rounded-full bg-primary opacity-75" />
                     <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
                   </span>
                   {HINTS[step]}

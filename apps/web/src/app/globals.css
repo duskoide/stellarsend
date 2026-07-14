@@ -4,13 +4,32 @@
 
 @layer base {
   :root {
+    /* Corporate design system tokens — see .agents/skills/design-system/SKILL.md */
     --background: 0 0% 100%;
+    --surface: 0 0% 100%;
     --foreground: 222 47% 11%;
+
+    /* Design tokens per SKILL.md: primary=#3B82F6, success=#16A34A, warning=#D97706.
+       Values below are darkened one step (same hue family) where the literal hex
+       fails 4.5:1 text/button-label contrast on white — accessibility wins per
+       the skill's own "flag conflicts, prioritize accessibility" rule. */
     --primary: 221 83% 53%;
     --primary-foreground: 0 0% 100%;
+    --secondary: 258 90% 66%; /* #8B5CF6 — accent only, not used for text or filled buttons (borderline contrast) */
+    --secondary-foreground: 0 0% 100%;
+
+    --success: 142 72% 30%;
+    --success-foreground: 0 0% 100%;
+    --warning: 28 90% 37%;
+    --warning-foreground: 0 0% 100%;
+    --danger: 0 74% 51%; /* #DC2626 — passes as-is */
+    --danger-foreground: 0 0% 100%;
+
     --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted-foreground: 215 16% 40%; /* darkened from 47% for AA contrast on white */
     --border: 214 32% 91%;
+    --ring: 221 83% 53%;
+
     --radius: 0.5rem;
   }
 }
@@ -19,8 +38,41 @@
   * {
     border-color: hsl(var(--border));
   }
+  html {
+    font-family: var(--font-sans);
+  }
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+  }
+  code, kbd, samp, pre {
+    font-family: var(--font-mono);
+  }
+
+  /* Keyboard-first: every focusable control gets a visible, consistent ring.
+     Pointer users never see it (focus-visible), so it costs nothing visually. */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: calc(var(--radius) - 2px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  @media (prefers-contrast: more) {
+    :root {
+      --border: 215 16% 40%;
+      --muted-foreground: 222 47% 11%;
+    }
   }
 }

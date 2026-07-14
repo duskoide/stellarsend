@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AmountInput } from "@/components/AmountInput";
 import { QuoteCard } from "@/components/QuoteCard";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Alert } from "@/components/ui/alert";
 import { useQuote } from "@/hooks/useQuote";
 import { api, getToken } from "@/lib/api";
 import { ASSET_CODE } from "@stellarsend/shared/constants";
@@ -23,6 +24,7 @@ const STEP_LABEL: Record<Step, string> = {
 
 export default function SendPage() {
   const router = useRouter();
+  const recipientId = useId();
   const [amount, setAmount] = useState("100");
   const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
   const [beneficiaryId, setBeneficiaryId] = useState("");
@@ -123,13 +125,16 @@ export default function SendPage() {
 
         {/* Recipient picker — no opaque IDs. */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-muted-foreground">Recipient</label>
+          <label htmlFor={recipientId} className="text-sm font-medium text-muted-foreground">
+            Recipient
+          </label>
           {beneficiaries.length > 0 && !showNewBen && (
             <>
               <select
+                id={recipientId}
                 value={beneficiaryId}
                 onChange={(e) => setBeneficiaryId(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="w-full min-h-11 rounded-md border border-border bg-surface px-3 py-2 text-sm"
               >
                 {beneficiaries.map((b) => (
                   <option key={b.id} value={b.id}>
@@ -140,7 +145,7 @@ export default function SendPage() {
               <button
                 type="button"
                 onClick={() => setShowNewBen(true)}
-                className="text-xs text-primary underline"
+                className="rounded-sm text-xs text-primary underline"
               >
                 + Add a new recipient
               </button>
@@ -148,18 +153,21 @@ export default function SendPage() {
           )}
 
           {showNewBen && (
-            <div className="space-y-2 rounded-md border border-dashed p-3">
+            <div className="space-y-2 rounded-md border border-dashed border-border p-3">
               <Input
+                aria-label="Recipient name"
                 placeholder="Recipient name (e.g. Ibu Siti)"
                 value={newBen.fullName}
                 onChange={(e) => setNewBen({ ...newBen, fullName: e.target.value })}
               />
               <Input
+                aria-label="Bank name"
                 placeholder="Bank (e.g. BCA)"
                 value={newBen.bankName}
                 onChange={(e) => setNewBen({ ...newBen, bankName: e.target.value })}
               />
               <Input
+                aria-label="Account number"
                 placeholder="Account number"
                 value={newBen.accountNumber}
                 onChange={(e) => setNewBen({ ...newBen, accountNumber: e.target.value })}
@@ -174,7 +182,8 @@ export default function SendPage() {
                 </Button>
                 {beneficiaries.length > 0 && (
                   <Button
-                    className="flex-1 bg-muted text-muted-foreground hover:bg-muted"
+                    variant="secondary"
+                    className="flex-1"
                     onClick={() => setShowNewBen(false)}
                   >
                     Cancel
@@ -188,30 +197,26 @@ export default function SendPage() {
         <Button
           className="w-full"
           onClick={handleGetQuote}
-          disabled={quote.isPending || !amount || busy}
+          loading={quote.isPending}
+          disabled={!amount || busy}
         >
           {quote.isPending ? "Fetching live rate…" : "Get quote"}
         </Button>
 
-        {quote.error && (
-          <p className="text-sm text-red-600">{(quote.error as Error).message}</p>
-        )}
+        {quote.error && <Alert variant="danger">{(quote.error as Error).message}</Alert>}
       </Card>
 
       {quote.data && (
         <>
           <QuoteCard quote={quote.data} />
 
-          {error && (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2">
-              <p className="text-sm text-red-700">{error}</p>
-            </div>
-          )}
+          {error && <Alert variant="danger">{error}</Alert>}
 
           <Button
             className="w-full"
             onClick={handleConfirm}
-            disabled={busy || !beneficiaryId}
+            loading={busy}
+            disabled={!beneficiaryId}
           >
             {STEP_LABEL[step]}
           </Button>

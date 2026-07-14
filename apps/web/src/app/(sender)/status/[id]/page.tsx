@@ -1,6 +1,7 @@
 "use client";
 
 import { Card, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { TxStatusStepper } from "@/components/TxStatusStepper";
 import { useTxStatus } from "@/hooks/useTxStatus";
 import { formatCurrency, formatFee, formatTxHash, stellarExpertTxUrl } from "@/lib/format";
@@ -12,7 +13,7 @@ export default function StatusPage({ params }: { params: { id: string } }) {
     return <main className="p-8 text-center text-muted-foreground">Loading…</main>;
   }
   if (error || !transfer) {
-    return <main className="p-8 text-center text-red-600">Transfer not found.</main>;
+    return <main className="p-8 text-center text-danger">Transfer not found.</main>;
   }
 
   const done = transfer.status === "COMPLETED";
@@ -32,11 +33,7 @@ export default function StatusPage({ params }: { params: { id: string } }) {
       <Card className="space-y-4">
         <div className="flex items-start justify-between gap-2">
           <CardTitle>Transfer status</CardTitle>
-          {done && elapsed && (
-            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-              Delivered in {elapsed}
-            </span>
-          )}
+          {done && elapsed && <Badge variant="success">Delivered in {elapsed}</Badge>}
         </div>
 
         <div className="flex items-baseline gap-2">
@@ -78,7 +75,7 @@ export default function StatusPage({ params }: { params: { id: string } }) {
       {!done && (
         <a
           href={`/claim/${transfer.id}`}
-          className="rounded-md border border-input px-4 py-3 text-center text-sm font-medium hover:bg-muted"
+          className="rounded-md border border-border px-4 py-3 text-center text-sm font-medium transition-colors hover:bg-muted"
         >
           Open recipient&apos;s view →
         </a>

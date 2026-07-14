@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Alert } from "@/components/ui/alert";
 import { api, getToken } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
 export default function ClaimPage({ params }: { params: { id: string } }) {
@@ -46,7 +47,7 @@ export default function ClaimPage({ params }: { params: { id: string } }) {
     return <main className="p-8 text-center text-muted-foreground">Loading…</main>;
   }
   if (!claim) {
-    return <main className="p-8 text-center text-red-600">Claim not found.</main>;
+    return <main className="p-8 text-center text-danger">Claim not found.</main>;
   }
 
   const status = claim.status;
@@ -68,44 +69,32 @@ export default function ClaimPage({ params }: { params: { id: string } }) {
         </p>
 
         {completed && (
-          <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3">
-            <p className="text-sm font-semibold text-emerald-800">
-              ✓ Disbursed to your account
-            </p>
-            <p className="mt-0.5 text-xs text-emerald-700">
+          <Alert variant="success">
+            <p className="font-semibold">✓ Disbursed to your account</p>
+            <p className="mt-0.5 text-xs opacity-90">
               Sent from abroad and delivered in seconds, for a fraction of a cent in network fees.
             </p>
-          </div>
+          </Alert>
         )}
 
-        {failed && (
-          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-            This transfer failed. No funds were disbursed.
-          </p>
-        )}
+        {failed && <Alert variant="danger">This transfer failed. No funds were disbursed.</Alert>}
 
         {waiting && (
-          <div className="flex items-center gap-2 rounded-md bg-muted px-3 py-2">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+          <Alert variant="neutral" className="flex items-center gap-2">
+            <span className="relative flex h-2 w-2" aria-hidden>
+              <span className="absolute inline-flex h-full w-full motion-safe:animate-ping rounded-full bg-primary opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
             </span>
-            <p className="text-sm text-muted-foreground">
-              Waiting for the payment to settle on Stellar…
-            </p>
-          </div>
+            Waiting for the payment to settle on Stellar…
+          </Alert>
         )}
 
-        {inFlight && (
-          <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
-            Payout in progress — disbursing to your account…
-          </p>
-        )}
+        {inFlight && <Alert variant="neutral">Payout in progress — disbursing to your account…</Alert>}
 
         {claimable && (
           <>
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            <Button className="w-full" onClick={handlePayout} disabled={submitting}>
+            {error && <Alert variant="danger">{error}</Alert>}
+            <Button className="w-full" loading={submitting} onClick={handlePayout}>
               {submitting ? "Requesting…" : "Claim to bank account"}
             </Button>
           </>

@@ -3,8 +3,21 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { Card, CardTitle } from "@/components/ui/card";
+import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { api } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
+import type { TransferStatus } from "@stellarsend/shared";
+
+const STATUS_VARIANT: Record<TransferStatus, BadgeProps["variant"]> = {
+  PENDING: "neutral",
+  FUNDED: "neutral",
+  SUBMITTED: "neutral",
+  SETTLED: "neutral",
+  PAYOUT_PENDING: "neutral",
+  COMPLETED: "success",
+  FAILED: "danger",
+  REFUNDED: "warning",
+};
 
 export default function HistoryPage() {
   const { data: transfers, isLoading } = useQuery({
@@ -17,7 +30,11 @@ export default function HistoryPage() {
       <CardTitle>Transfer history</CardTitle>
       {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
       {transfers?.map((t) => (
-        <Link key={t.id} href={`/status/${t.id}`}>
+        <Link
+          key={t.id}
+          href={`/status/${t.id}`}
+          className="rounded-lg transition-colors hover:bg-muted/50"
+        >
           <Card className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium">
@@ -28,7 +45,7 @@ export default function HistoryPage() {
                 {new Date(t.createdAt).toLocaleString()}
               </p>
             </div>
-            <span className="text-xs font-medium text-muted-foreground">{t.status}</span>
+            <Badge variant={STATUS_VARIANT[t.status] ?? "neutral"}>{t.status}</Badge>
           </Card>
         </Link>
       ))}

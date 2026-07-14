@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Alert } from "@/components/ui/alert";
 import { api, setToken } from "@/lib/api";
 
 function LoginForm() {
@@ -38,23 +39,37 @@ function LoginForm() {
     <main className="mx-auto flex min-h-screen max-w-md items-center px-4">
       <Card className="w-full space-y-4">
         <CardTitle>Log in</CardTitle>
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <Input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <Input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <Button type="submit" className="w-full" disabled={loading}>
+        <form onSubmit={handleSubmit} className="space-y-3" noValidate>
+          <div className="space-y-1.5">
+            <label htmlFor="login-email" className="text-sm font-medium text-muted-foreground">
+              Email
+            </label>
+            <Input
+              id="login-email"
+              type="email"
+              autoComplete="email"
+              error={!!error}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="login-password" className="text-sm font-medium text-muted-foreground">
+              Password
+            </label>
+            <Input
+              id="login-password"
+              type="password"
+              autoComplete="current-password"
+              error={!!error}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+          {error && <Alert variant="danger">{error}</Alert>}
+          <Button type="submit" className="w-full" loading={loading}>
             {loading ? "Logging in…" : "Log in"}
           </Button>
         </form>
