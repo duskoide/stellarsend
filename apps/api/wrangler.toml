@@ -9,6 +9,7 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 HORIZON_URL = "https://horizon-testnet.stellar.org"
 STELLAR_NETWORK = "TESTNET"
+RECEIVING_ANCHOR_PUBKEY = "G..." # receiving anchor pubkey (printed by seed-stellar.ts)
 
 # ── Cloudflare Queues (async settlement + payout) ──
 [[queues.producers]]
