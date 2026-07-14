@@ -13,6 +13,9 @@ export default function LandingPage() {
         <Link href="/send">
           <Button>Send money</Button>
         </Link>
+        <Link href="/auth/register">
+          <Button>Create account</Button>
+        </Link>
         <Link href="/auth/login">
           <Button variant="secondary">Log in</Button>
         </Link>
