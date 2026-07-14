@@ -1,14 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { api } from "@/lib/api";
+import { api, getToken } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
 import type { PayoutMethod } from "@stellarsend/shared/constants";
 
 export default function ClaimPage({ params }: { params: { id: string } }) {
+  const router = useRouter();
+
+  // Redirect to login if not authenticated, preserving the claim URL as a return target.
+  useEffect(() => {
+    if (!getToken()) router.push(`/auth/login?next=/claim/${params.id}`);
+  }, [router, params.id]);
+
   const [method, setMethod] = useState<PayoutMethod>("BANK_TRANSFER");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
