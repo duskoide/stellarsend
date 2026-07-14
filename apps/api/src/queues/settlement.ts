@@ -54,12 +54,8 @@ export async function handleSettlement(
         });
       }
 
-      // Auto-payout: settled funds are with the receiving anchor, so disburse.
-      // If the receiver already chose a method, honour it; otherwise default to bank.
-      await env.QUEUE_PAYOUT.send({
-        transferId,
-        method: row.payoutMethod ?? "BANK_TRANSFER",
-      });
+      // Stop at SETTLED. The receiver claim flow triggers payout via
+      // POST /claims/:id/payout, matching the demo script.
 
       msg.ack();
     } catch (err) {
