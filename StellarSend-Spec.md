@@ -52,7 +52,7 @@
 **Alur transaksi (happy path):**
 1. Sender input jumlah + pilih penerima → sistem hitung quote (rate + fee).
 2. Sender fund via sending anchor (SEP-24 deposit) atau langsung bayar stablecoin.
-3. Backend eksekusi **Path Payment** di Stellar: `[SourceAsset] → USDC → IDR-token`.
+3. Backend eksekusi **Path Payment** di Stellar. Current demo baseline: `USDC-demo → IDR-token`. Candidate multi-hop route: `[SourceAsset] → XLM → IDR-token` (lihat §7.1).
 4. Receiving anchor (SEP-31/SEP-24) terima IDR-token → payout ke rekening bank / e-wallet penerima.
 5. Kedua pihak dapat notifikasi + status real-time.
 
@@ -389,6 +389,76 @@ Pemanggilan Horizon via `fetch` native sudah kompatibel. **Spike** pembuatan & s
 transaksi di dalam Worker sejak hari pertama — ini satu-satunya risiko runtime yang
 load-bearing untuk submit path payment.
 
+### 7.1 Keputusan Bridge Asset: XLM vs USDC (DITUNDA)
+
+**Status:** keputusan bridge asset ditunda sampai route XLM menghasilkan transaksi Testnet yang sukses dan dapat diverifikasi di Stellar Expert. Jangan menghapus current USDC happy path sebelum gate ini terpenuhi.
+
+#### Opsi route
+
+**Current baseline — USDC demo asset:**
+
+```text
+USDC-demo → IDR-token → receiving anchor → IDR fiat (mock payout)
+```
+
+`seed-stellar.ts` saat ini membuat issuer USDC secara acak. Karena asset Stellar diidentifikasi oleh kombinasi `asset code + issuer`, asset ini adalah **demo token**, bukan USDC yang benar-benar didukung USD. Production harus memakai issuer/anchor yang diverifikasi.
+
+**Candidate Stellar-native route — XLM sebagai bridge:**
+
+```text
+VND/PHP token → [XLM] → IDR-token → receiving anchor → IDR fiat (mock payout)
+```
+
+Ini menggunakan satu `Path Payment Strict Receive` dengan XLM sebagai intermediary asset. Route tersebut membutuhkan liquidity untuk kedua pasangan:
+
+```text
+VND/XLM atau PHP/XLM
+XLM/IDR
+```
+
+Jika user membeli XLM secara just-in-time, flow off-chain-nya menjadi:
+
+```text
+fiat → buy/acquire XLM → XLM → IDR-token
+```
+
+Dalam flow ini XLM adalah **source asset**, bukan intermediary hop.
+
+#### Alasan memilih XLM untuk demo
+
+- XLM adalah native Stellar asset; tidak membutuhkan issuer atau trustline.
+- Path Payment dapat menampilkan kemampuan Stellar SDEX/liquidity routing secara langsung.
+- Menghindari ketergantungan pada random testnet issuer yang hanya diberi code `USDC`.
+- Menunjukkan route multi-hop yang relevan untuk transfer lintas mata uang.
+
+#### Trade-off dan batasan
+
+- XLM tidak stable; harga dapat berubah antara quote dan submission.
+- XLM tidak membuat transaksi lebih cepat atau biaya jaringan lebih rendah. Kedua route tetap membayar network fee dalam XLM dan memiliki finality Stellar yang sama.
+- Stablecoin lebih mudah untuk quote fiat yang predictable, selama issuer, redemption, dan liquidity-nya dapat dipercaya.
+- XLM route membutuhkan liquidity yang cukup dan dapat menghasilkan spread/slippage yang lebih besar daripada USDC.
+- Semua issued asset (`VND`, `PHP`, `IDR`) wajib menggunakan issuer yang tepat; asset code saja tidak cukup.
+
+#### Gate sebelum XLM menjadi default demo
+
+1. Pilih satu source asset terlebih dahulu (`VND` atau `PHP`); jangan seed semua corridor sekaligus.
+2. Seed dan verifikasi liquidity untuk `source/XLM` dan `XLM/IDR` di Testnet.
+3. Request quote dengan `strictReceivePaths`/`strictSendPaths` dan pastikan path yang dipilih benar-benar berisi native XLM.
+4. Jika XLM wajib menjadi bridge, kirim explicit path `[Asset.native()]` atau reject route yang tidak memuat `XLM`; jangan biarkan direct offer diam-diam melewati XLM.
+5. Gunakan quote TTL, `sendMax`, dan strict-receive protection. Re-quote jika market bergerak melewati slippage limit.
+6. Pastikan distributor/user memiliki XLM tambahan untuk network fee dan account reserve.
+7. Submit transaksi dan simpan hash yang membuka di Stellar Expert. Hanya setelah gate ini lulus XLM boleh menggantikan current USDC happy path.
+
+**Keputusan arsitektur jangka panjang:** bridge asset sebaiknya configurable. Gunakan XLM bila native liquidity dan settlement cepat lebih menguntungkan; gunakan USDC/stable asset bila predictable fiat pricing lebih penting. Untuk hackathon, XLM adalah candidate yang kuat, tetapi tidak boleh dipresentasikan sebagai stable asset.
+
+**Referensi Stellar:**
+
+- [Path payments](https://developers.stellar.org/docs/build/guides/transactions/path-payments)
+- [Strict-receive path discovery](https://developers.stellar.org/docs/data/apis/horizon/api-reference/list-strict-receive-payment-paths)
+- [Lumens (XLM)](https://developers.stellar.org/docs/learn/fundamentals/lumens)
+- [Stellar assets and issuers](https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/assets)
+- [SDEX and liquidity pools](https://developers.stellar.org/docs/learn/fundamentals/liquidity-on-stellar-sdex-liquidity-pools)
+
 ---
 
 ## 8. Scope MVP (2 Minggu) — Prioritas
@@ -397,7 +467,7 @@ load-bearing untuk submit path payment.
 1. Auth sederhana (email + JWT).
 2. Halaman Send: input jumlah + pilih/buat beneficiary.
 3. Quote real dari Horizon path payment.
-4. Eksekusi path payment di **Testnet** (USDC → IDR-token) — tampilkan tx hash + link ke Stellar Expert.
+4. Eksekusi path payment di **Testnet** (current baseline `USDC-demo → IDR-token`; XLM bridge option tracked in §7.1) — tampilkan tx hash + link ke Stellar Expert.
 5. Halaman status dengan stepper (TransferEvent).
 6. Halaman klaim receiver + simulasi payout (mock anchor callback).
 
@@ -475,6 +545,7 @@ IDR_ISSUER=G...
 | Liquidity IDR-token tipis di testnet DEX | Seed order book sendiri lewat distributor account saat setup |
 | Waktu 2 minggu mepet | Kunci scope di bagian "WAJIB"; jangan sentuh nice-to-have sebelum happy path jalan |
 | Rate stale | Quote expiry 60 dtk + re-quote sebelum submit |
+| XLM bridge volatility/liquidity | Treat XLM as a candidate until a real Testnet tx proves the route; use strict-receive, `sendMax`, explicit XLM-path verification, and a short quote TTL |
 | Stellar SDK di Workers (ed25519) | Enable `nodejs_compat`; spike sign tx sejak awal. Kalau `Keypair` gagal, fallback `@noble/ed25519` + WebCrypto |
 | BullMQ→Queues beda semantik | Consumer idempoten (at-least-once); reconcile transfer stuck via Cron Trigger |
 | SQLite/Turso tak ada enum/decimal | Amount simpan `text` (7 desimal); enum sebagai TS union di `shared/constants` |
