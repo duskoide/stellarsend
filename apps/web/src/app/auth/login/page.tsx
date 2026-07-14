@@ -10,7 +10,9 @@ import { api, setToken } from "@/lib/api";
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/send";
+  const rawNext = searchParams.get("next");
+  // Guard against open redirects: only allow relative paths starting with "/".
+  const next = rawNext?.startsWith("/") ? rawNext : "/send";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
