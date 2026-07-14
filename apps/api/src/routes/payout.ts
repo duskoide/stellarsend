@@ -14,9 +14,9 @@ const payout = new Hono<AppContext>();
 payout.use("*", authMiddleware);
 
 // GET /claims/:id — claim info for the receiver.
+// Any authenticated user can view a claim; the receiverId match below enforces
+// access control once the claim has been assigned.
 payout.get("/:id", async (c) => {
-  // Claim links are receiver-facing; sender tokens must not expose or trigger payouts.
-  if (c.get("userRole") !== "RECEIVER") throw notFound("Claim not found");
   const db = createDb(c.env);
   const row = await db
     .select()
@@ -36,8 +36,8 @@ payout.get("/:id", async (c) => {
 });
 
 // POST /claims/:id/payout — receiver selects method → anchor withdraw → COMPLETED.
+// Any authenticated user can claim; the receiverId match below enforces access.
 payout.post("/:id/payout", async (c) => {
-  if (c.get("userRole") !== "RECEIVER") throw notFound("Claim not found");
   const body = await c.req.json<PayoutRequest>();
   if (!body.method) throw badRequest("method required");
   if (!PAYOUT_METHOD.includes(body.method)) throw badRequest("Unsupported payout method");

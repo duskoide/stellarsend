@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
+import NavBar from "@/components/NavBar";
 
 export const runtime = "edge";
 
@@ -17,6 +18,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
+        <NavBar />
         <Providers>{children}</Providers>
       </body>
     </html>

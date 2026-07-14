@@ -13,7 +13,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const rawNext = searchParams.get("next");
   // Guard against open redirects: only allow relative paths starting with "/".
-  const next = rawNext?.startsWith("/") ? rawNext : "/send";
+  const next = rawNext?.startsWith("/") ? rawNext : "/history";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);

@@ -2,7 +2,7 @@
 // get detail + events, list. Auth-protected.
 
 import { Hono } from "hono";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, or } from "drizzle-orm";
 import type { AppContext } from "../env.js";
 import { createDb, schema } from "../db/client.js";
 import { authMiddleware } from "../middleware/auth.js";
@@ -253,13 +253,17 @@ transfer.post("/:id/submit", async (c) => {
 transfer.get("/:id", async (c) => {
   const db = createDb(c.env);
   const tid = c.req.param("id");
+  const uid = c.get("userId");
   const row = await db
     .select()
     .from(schema.transfers)
     .where(
       and(
         eq(schema.transfers.id, tid),
-        eq(schema.transfers.senderId, c.get("userId")),
+        or(
+          eq(schema.transfers.senderId, uid),
+          eq(schema.transfers.receiverId, uid),
+        ),
       ),
     )
     .get();
@@ -285,13 +289,19 @@ transfer.get("/:id", async (c) => {
   return c.json(res);
 });
 
-// GET /transfers — list current user's transfers.
+// GET /transfers — list current user's transfers (both sent and received).
 transfer.get("/", async (c) => {
   const db = createDb(c.env);
+  const uid = c.get("userId");
   const rows = await db
     .select()
     .from(schema.transfers)
-    .where(eq(schema.transfers.senderId, c.get("userId")))
+    .where(
+      or(
+        eq(schema.transfers.senderId, uid),
+        eq(schema.transfers.receiverId, uid),
+      ),
+    )
     .orderBy(desc(schema.transfers.createdAt))
     .all();
   return c.json(rows.map(toTransfer));

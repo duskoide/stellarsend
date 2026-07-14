@@ -6,7 +6,6 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { api, setToken } from "@/lib/api";
-import type { UserRole } from "@stellarsend/shared/constants";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -15,7 +14,6 @@ export default function RegisterPage() {
     password: "",
     fullName: "",
     country: "",
-    role: "SENDER" as UserRole,
   });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -25,9 +23,9 @@ export default function RegisterPage() {
     setError(null);
     setLoading(true);
     try {
-      const res = await api.auth.register(form);
+      const res = await api.auth.register({ ...form, role: "SENDER" });
       setToken(res.token);
-      router.push("/send");
+      router.push("/history");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {
@@ -66,14 +64,6 @@ export default function RegisterPage() {
             onChange={(e) => setForm({ ...form, country: e.target.value })}
             required
           />
-          <select
-            className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
-            value={form.role}
-            onChange={(e) => setForm({ ...form, role: e.target.value as UserRole })}
-          >
-            <option value="SENDER">Sender</option>
-            <option value="RECEIVER">Receiver</option>
-          </select>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Creating…" : "Create account"}
