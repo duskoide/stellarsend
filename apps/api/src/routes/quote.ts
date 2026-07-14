@@ -21,8 +21,9 @@ import type { Quote, QuoteRequest } from "@stellarsend/shared";
 
 const quote = new Hono<AppContext>();
 
-// Our spread/fee, taken on the source side before hitting the DEX (0.5% demo rate).
-const FEE_RATE = new Decimal("0.005");
+// Demo service fee, taken on the source side before hitting the DEX.
+// 0.005% = 0.005 USDC on a 100 USDC transfer, keeping the pitch fee below $0.01.
+const FEE_RATE = new Decimal("0.00005");
 
 quote.post("/", async (c) => {
   const body = await c.req.json<QuoteRequest>();

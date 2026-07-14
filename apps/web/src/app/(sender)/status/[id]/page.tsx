@@ -3,7 +3,7 @@
 import { Card, CardTitle } from "@/components/ui/card";
 import { TxStatusStepper } from "@/components/TxStatusStepper";
 import { useTxStatus } from "@/hooks/useTxStatus";
-import { formatCurrency, formatTxHash, stellarExpertTxUrl } from "@/lib/format";
+import { formatCurrency, formatFee, formatTxHash, stellarExpertTxUrl } from "@/lib/format";
 
 export default function StatusPage({ params }: { params: { id: string } }) {
   const { data: transfer, isLoading, error } = useTxStatus(params.id);
@@ -49,7 +49,7 @@ export default function StatusPage({ params }: { params: { id: string } }) {
           </span>
         </div>
         <p className="-mt-2 text-xs text-muted-foreground">
-          Fee {formatCurrency(transfer.feeAmount, transfer.sourceAsset)} · rate{" "}
+          Fee {formatFee(transfer.feeAmount, transfer.sourceAsset)} · rate{" "}
           {Number(transfer.exchangeRate).toLocaleString()}
         </p>
 

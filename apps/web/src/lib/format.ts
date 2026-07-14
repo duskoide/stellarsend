@@ -26,6 +26,12 @@ export function formatCurrency(
   }
 }
 
+export function formatFee(amount: string, currency: string): string {
+  const n = Number(amount);
+  if (n > 0 && n < 0.01) return `< 0.01 ${currency}`;
+  return formatCurrency(amount, currency);
+}
+
 export function formatTxHash(hash: string, chars = 6): string {
   if (hash.length <= chars * 2) return hash;
   return `${hash.slice(0, chars)}…${hash.slice(-chars)}`;
