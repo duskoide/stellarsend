@@ -10,7 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { useQuote } from "@/hooks/useQuote";
 import { api, getToken } from "@/lib/api";
-import { ASSET_CODE } from "@stellarsend/shared/constants";
+import {
+  FIAT_ASSET_CODES,
+  type FiatAssetCode,
+} from "@stellarsend/shared/constants";
 import type { Beneficiary } from "@stellarsend/shared";
 
 type Step = "idle" | "creating" | "funding" | "submitting";
@@ -26,6 +29,8 @@ export default function SendPage() {
   const router = useRouter();
   const recipientId = useId();
   const [amount, setAmount] = useState("100");
+  const [sourceAsset, setSourceAsset] = useState<FiatAssetCode>("VND");
+  const [destAsset, setDestAsset] = useState<FiatAssetCode>("IDR");
   const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
   const [beneficiaryId, setBeneficiaryId] = useState("");
   const [showNewBen, setShowNewBen] = useState(false);
@@ -72,10 +77,20 @@ export default function SendPage() {
     setError(null);
     if (!amount) return;
     quote.mutate({
-      sourceAsset: ASSET_CODE.USDC,
+      sourceAsset,
       sourceAmount: amount,
-      destAsset: ASSET_CODE.IDR,
+      destAsset,
     });
+  };
+
+  const handleSourceAssetChange = (next: FiatAssetCode) => {
+    setSourceAsset(next);
+    quote.reset();
+  };
+
+  const handleDestAssetChange = (next: FiatAssetCode) => {
+    setDestAsset(next);
+    quote.reset();
   };
 
   // Quotes expire in 60s, so create → fund → submit runs as ONE action. Splitting these
@@ -117,11 +132,42 @@ export default function SendPage() {
         <CardTitle>Send money</CardTitle>
 
         <AmountInput
-          label="Amount"
+          label="Amount to send"
           value={amount}
           onChange={setAmount}
-          assetCode={ASSET_CODE.USDC}
+          assetCode={sourceAsset}
         />
+
+        <div className="grid grid-cols-2 gap-3">
+          <label className="space-y-1.5 text-sm font-medium text-muted-foreground">
+            Send currency
+            <select
+              value={sourceAsset}
+              onChange={(e) => handleSourceAssetChange(e.target.value as FiatAssetCode)}
+              className="min-h-11 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground"
+            >
+              {FIAT_ASSET_CODES.map((code) => (
+                <option key={code} value={code}>
+                  {code}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-1.5 text-sm font-medium text-muted-foreground">
+            Receive currency
+            <select
+              value={destAsset}
+              onChange={(e) => handleDestAssetChange(e.target.value as FiatAssetCode)}
+              className="min-h-11 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground"
+            >
+              {FIAT_ASSET_CODES.map((code) => (
+                <option key={code} value={code}>
+                  {code}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
 
         {/* Recipient picker — no opaque IDs. */}
         <div className="space-y-2">

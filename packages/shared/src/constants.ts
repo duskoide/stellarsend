@@ -22,12 +22,21 @@ export type PayoutMethod = (typeof PAYOUT_METHOD)[number];
 export const KYC_STATUS = ["none", "pending", "verified"] as const;
 export type KycStatus = (typeof KYC_STATUS)[number];
 
-// Asset codes used across the app. Issuers come from env (server-side).
+// Fiat asset codes supported by the current XLM-bridge backend.
+// Issuers come from Worker secrets (server-side).
 export const ASSET_CODE = {
-  USDC: "USDC",
   IDR: "IDR",
+  VND: "VND",
+  PHP: "PHP",
   XLM: "XLM",
 } as const;
+
+export const FIAT_ASSET_CODES = [
+  ASSET_CODE.IDR,
+  ASSET_CODE.VND,
+  ASSET_CODE.PHP,
+] as const;
+export type FiatAssetCode = (typeof FIAT_ASSET_CODES)[number];
 
 // Stellar amounts use 7 decimal places.
 export const STELLAR_DECIMALS = 7;

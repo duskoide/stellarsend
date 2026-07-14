@@ -173,7 +173,9 @@ async function main() {
     markets.map((market) =>
       Operation.changeTrust({
         asset: market.asset,
-        limit: market.marketMakerAmount,
+        // Leave room above the issued balance for buying liabilities created
+        // by the XLM sell offers.
+        limit: "500000000000",
       }),
     ),
     "market maker -> IDR + VND + PHP",
@@ -200,28 +202,48 @@ async function main() {
   }
 
   console.log("\n4. Seeding XLM/local order books...");
-  // The market maker sells XLM and buys each local asset. These offers support
-  // both legs of a route: source -> XLM and XLM -> destination.
+  // Both sides of every XLM/local market are required for a route:
+  // source local -> XLM consumes local sell offers, while XLM -> destination
+  // consumes XLM sell offers.
   const levelMultipliers = ["1", "1.01", "1.02"];
   const bridgeOffers = markets.flatMap((market) =>
-    levelMultipliers.map((multiplier) => ({
-      market,
-      amount: "300",
-      price: new Decimal(market.localPerXlm).mul(multiplier).toFixed(7),
-    })),
+    levelMultipliers.flatMap((multiplier) => {
+      const localPerXlm = new Decimal(market.localPerXlm);
+      const level = new Decimal(multiplier);
+      const localOfferAmount = new Decimal(market.marketMakerAmount)
+        .div(levelMultipliers.length)
+        .toFixed(7);
+      return [
+        {
+          selling: XLM,
+          buying: market.asset,
+          amount: "300",
+          price: localPerXlm.mul(level).toFixed(7),
+        },
+        {
+          selling: market.asset,
+          buying: XLM,
+          amount: localOfferAmount,
+          // Keep the reciprocal bid below the ask to avoid op_cross_self.
+          price: new Decimal("1")
+            .div(localPerXlm.mul(level).mul(new Decimal("0.95")))
+            .toFixed(7),
+        },
+      ];
+    }),
   );
   await submit(
     mm,
-    bridgeOffers.map(({ market, amount, price }) =>
+    bridgeOffers.map(({ selling, buying, amount, price }) =>
       Operation.manageSellOffer({
-        selling: XLM,
-        buying: market.asset,
+        selling,
+        buying,
         amount,
         price,
         offerId: "0",
       }),
     ),
-    "XLM -> IDR + VND + PHP bridge offers",
+    "XLM/local reciprocal bridge offers",
   );
 
   // Print keys BEFORE verification — a failed verify must never lose keypairs.
