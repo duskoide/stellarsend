@@ -12,20 +12,16 @@
 ## 🎯 Right now
 
 **Working on:** _(one sentence — the single active thread)_
-> Run the whole backbone against real testnet and capture the first tx hash.
+> Rehearse the deployed demo three times and keep the verified local testnet proof as fallback.
 
 **Blocked by:** _(or "nothing")_
-> Nothing in code. **The entire demo backbone is written, typechecks, and bundles for the
-> isolate.** It has never touched a network (sandbox had no Horizon access) — so every claim
-> below is "compiles + logic verified", NOT "ran against testnet". That run is the next step.
+> Nothing code-level blocks the local MVP. The full backbone now runs against testnet; deployed
+> rehearsal and three clean demo runs are still outstanding.
 
 **Next 3 actions:**
-1. `pnpm --filter api tsx drizzle/seed-stellar.ts` → funds accounts, issues USDC/IDR,
-   **seeds the order book**, asserts a path exists. Paste the 4 printed values into `.env`.
-   *(No liquidity ⇒ quote 400s and submit fails. This step is not optional.)*
-2. `turso dev` + `wrangler dev` + `web dev` → register → quote → fund → submit → claim.
-   Confirm status reaches **COMPLETED** and paste the real tx hash here.
-3. Rehearse the 5-min demo (spec §9) on the **deployed** URL, 3× clean.
+1. Deploy the Worker and Pages build with the verified environment bindings.
+2. Run the five-minute demo script on the deployed URL three times without manual recovery.
+3. Add a real anchor integration only after the deployed demo backbone is stable.
 
 ---
 
@@ -50,10 +46,10 @@ Only list things you *actually ran*. "Wrote the code" ≠ done.
 - [x] Drizzle schema + first migration; seed script exists
 - [x] Shared types frozen in `packages/shared/src/types.ts`
 - [x] FE screens render on mocked data
-- [ ] **Worker signs + submits a real tx** ← the gate everything waits on
-- [ ] Real quote from Horizon `strictReceivePaths`
-- [ ] Sender flow → on-chain tx hash
-- [ ] Receiver claim → COMPLETED
+- [x] **Worker signs + submits a real tx**
+- [x] Real quote from Horizon `strictSendPaths`
+- [x] Sender flow → on-chain tx hash
+- [x] Receiver claim → COMPLETED
 - [ ] Demo runs 3× clean on deployed URL
 
 ---
@@ -84,9 +80,9 @@ Anything a fresh session would otherwise waste an hour rediscovering.
 
 ## 🚧 Open questions
 
-- Does `Keypair.fromSecret()` work under `nodejs_compat`, or is `@noble/ed25519` required?
+- [x] `Keypair.fromSecret()` and `tx.sign()` work under `nodejs_compat` in local `wrangler dev`.
 - Is there a real IDR-token issuer from an APAC anchor partner we should use instead of self-issued?
-- Is testnet DEX liquidity for USDC→IDR deep enough, or must we seed the order book ourselves?
+- [x] Testnet liquidity is reproducible by seeding the USDC/IDR order book ourselves.
 
 ---
 
@@ -106,4 +102,13 @@ hash: 6a93c2190b8cfc0ea67bc6abdbedc773d52dd6665b9dc33ac3dfa2753208eafc
 https://stellar.expert/explorer/testnet/tx/6a93c2190b8cfc0ea67bc6abdbedc773d52dd6665b9dc33ac3dfa2753208eafc
 
 100 USDC -> Rp1,592,000. Worker ed25519 signing CONFIRMED working.
+
+## Latest verified local flow � 2026-07-14
+
+hash: dd75832013f37606efacd8dfde27a59a25b3500d1aaac40c6eec6f3023ca1b33
+https://stellar.expert/explorer/testnet/tx/dd75832013f37606efacd8dfde27a59a25b3500d1aaac40c6eec6f3023ca1b33
+
+status: successful, Horizon ledger 3597707
+quote: 100 USDC -> 1,599,920 IDR, service fee 0.0050000 USDC
+flow: PENDING -> FUNDED -> SUBMITTED -> SETTLED -> PAYOUT_PENDING -> COMPLETED
 

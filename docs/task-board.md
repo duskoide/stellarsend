@@ -26,7 +26,7 @@ Goal: kill the two biggest unknowns before building on them.
 
 | # | Task | Owner | Status | Exit criteria |
 |---|---|---|---|---|
-| 0.1 | **Spike:** sign + submit a Path Payment inside a Worker with `nodejs_compat`. Fallback `@noble/ed25519` + WebCrypto if `Keypair` fails | BE1 | ☐ | Real testnet tx hash visible on Stellar Expert |
+| 0.1 | **Spike:** sign + submit a Path Payment inside a Worker with `nodejs_compat`. Fallback `@noble/ed25519` + WebCrypto if `Keypair` fails | BE1 | [x] | Real testnet tx hash visible on Stellar Expert |
 | 0.2 | Scaffold monorepo, `wrangler.toml`, Turso (local file libSQL), deploy hello-world Worker + Pages | INFRA/BE3 | ☐ | Deploy pipeline green end-to-end |
 | 0.3 | Define `packages/shared/types.ts` + Drizzle schema; first migration + seed (accounts, trustlines, friendbot, seeded IDR order book) | BE2 | ☐ | Migration + seed run clean; shared types frozen |
 | 0.4 | Scaffold Next.js + Tailwind + shadcn; static Send / Status / Claim screens on mocked API | FE1, FE2 | ☐ | Screens render on mock data |
@@ -41,11 +41,11 @@ Goal: sender happy path end-to-end, ugly but working.
 
 | # | Task | Owner | Status | Exit criteria |
 |---|---|---|---|---|
-| 1.1 | `POST /quote` via `strictReceivePaths` (rate + fee + destAmount + expiresAt) | BE1 | ☐ | Real quote from Horizon |
-| 1.2 | `POST /transfers/:id/submit` builds + submits path payment | BE1 | ☐ | On-chain tx hash returned |
-| 1.3 | `/auth` (register/login/JWT), `POST /transfers`, `/beneficiaries`, `transferEvents` writes | BE2 | ☐ | Endpoints pass manual test |
+| 1.1 | `POST /quote` via `strictSendPaths` (rate + fee + destAmount + expiresAt) | BE1 | [x] | Real quote from Horizon |
+| 1.2 | `POST /transfers/:id/submit` builds + submits path payment | BE1 | [x] | On-chain tx hash returned |
+| 1.3 | `/auth` (register/login/JWT), `POST /transfers`, `/beneficiaries`, `transferEvents` writes | BE2 | [x] | Endpoints pass manual test |
 | 1.4 | Send form → real quote → confirm → tx hash + Stellar Expert link | FE1 | ☐ | Sender completes flow in UI |
-| 1.5 | `POST /transfers/:id/fund` mock anchor deposit; Queues wired for settlement polling | INFRA/BE3 | ☐ | Fund transitions status |
+| 1.5 | `POST /transfers/:id/fund` mock anchor deposit; Queues wired for settlement polling | INFRA/BE3 | [x] | Fund transitions status |
 
 **Gate:** login → real quote → submit → on-chain tx hash. This is the demo backbone.
 
@@ -59,10 +59,12 @@ Goal: close the loop.
 |---|---|---|---|---|
 | 2.1 | Status stepper polling `GET /transfers/:id`; receiver claim → payout method → COMPLETED | FE2 | ☐ | Status reaches COMPLETED in UI |
 | 2.2 | Mock anchor withdraw callback `POST /webhooks/anchor`; payout queue; Cron reconcile (idempotent) | INFRA/BE3 | ☐ | Stuck transfers reconcile |
-| 2.3 | `GET /claims/:id`, `POST /claims/:id/payout` | BE2 | ☐ | Claim + payout endpoints work |
+| 2.3 | `GET /claims/:id`, `POST /claims/:id/payout` | BE2 | [x] | Claim + payout endpoints work |
 | 2.4 | Harden path payment: timeouts, retry, quote-expiry re-quote before submit | BE1 | ☐ | Stale quote handled gracefully |
 
 **Gate:** full end-to-end — sender sends, receiver claims, status COMPLETED, verifiable on-chain.
+
+**Local testnet verification (2026-07-14):** completed the full flow with tx hash `dd75832013f37606efacd8dfde27a59a25b3500d1aaac40c6eec6f3023ca1b33`. Deployed rehearsal remains open.
 
 ---
 

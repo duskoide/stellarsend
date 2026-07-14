@@ -2,7 +2,7 @@
 // get detail + events, list. Auth-protected.
 
 import { Hono } from "hono";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import type { AppContext } from "../env.js";
 import { createDb, schema } from "../db/client.js";
 import { authMiddleware } from "../middleware/auth.js";
@@ -65,6 +65,9 @@ function toTransfer(row: typeof schema.transfers.$inferSelect): Transfer {
 // POST /transfers — create from a locked quote + beneficiary.
 transfer.post("/", async (c) => {
   const body = await c.req.json<CreateTransferRequest>();
+  if (!body.quoteId || !body.beneficiaryId) {
+    throw badRequest("quoteId and beneficiaryId are required");
+  }
   const db = createDb(c.env);
   const q = await db
     .select()
@@ -73,6 +76,18 @@ transfer.post("/", async (c) => {
     .get();
   if (!q) throw notFound("Quote not found");
   if (q.expiresAt.getTime() < Date.now()) throw badRequest("Quote expired — re-quote");
+
+  const beneficiary = await db
+    .select()
+    .from(schema.beneficiaries)
+    .where(
+      and(
+        eq(schema.beneficiaries.id, body.beneficiaryId),
+        eq(schema.beneficiaries.ownerId, c.get("userId")),
+      ),
+    )
+    .get();
+  if (!beneficiary) throw notFound("Beneficiary not found");
 
   const row = {
     id: id("tf"),
@@ -103,9 +118,20 @@ transfer.post("/:id/fund", async (c) => {
   const row = await db
     .select()
     .from(schema.transfers)
-    .where(eq(schema.transfers.id, tid))
+    .where(
+      and(
+        eq(schema.transfers.id, tid),
+        eq(schema.transfers.senderId, c.get("userId")),
+      ),
+    )
     .get();
   if (!row) throw notFound("Transfer not found");
+  if (row.status === "FUNDED") {
+    return c.json({ ok: true, alreadyFunded: true });
+  }
+  if (row.status !== "PENDING") {
+    throw badRequest(`Transfer must be PENDING to fund (currently ${row.status})`);
+  }
 
   // TODO(INFRA/BE3): call mock sending anchor; store sendingAnchorRef.
   await db
@@ -230,7 +256,12 @@ transfer.get("/:id", async (c) => {
   const row = await db
     .select()
     .from(schema.transfers)
-    .where(eq(schema.transfers.id, tid))
+    .where(
+      and(
+        eq(schema.transfers.id, tid),
+        eq(schema.transfers.senderId, c.get("userId")),
+      ),
+    )
     .get();
   if (!row) throw notFound("Transfer not found");
   const events = await db

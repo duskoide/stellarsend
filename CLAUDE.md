@@ -21,9 +21,9 @@ happy path is green.
 ## Current state (update this line as it changes)
 
 - ✅ Scaffold, Drizzle schema + migration, Hono routes, Next.js pages, shared types
-- ✅ `pathPayment.ts` written (`buildPathPayment` / `submitPathPayment` / `findBestPath`)
-- ❌ **`POST /transfers/:id/submit` is NOT wired** — it's a `TODO(BE1)` returning a stub. No tx hash yet.
-- ❌ **Worker ed25519 spike UNVERIFIED** — see Risk #1 below. Do-or-die.
+- ✅ `pathPayment.ts` implemented (`buildPathPayment` / `submitPathPayment` / `findBestPath`)
+- ✅ **`POST /transfers/:id/submit` is wired** — persists a real testnet tx hash and enqueues settlement.
+- ✅ **Worker ed25519 signing + submission verified** in local `wrangler dev` against testnet.
 - ⚠️ Anchors are mocked by design (avoids prod KYC blocker). Keep the SEP-24/31 flow *shape*.
 
 ## Architecture (do not re-litigate)
@@ -45,11 +45,10 @@ Next.js 14 (Cloudflare Pages)  →  Hono API (Cloudflare Workers)  →  Horizon 
 
 ## Known landmines (learned the hard way — do not rediscover)
 
-1. **Worker ed25519 / `nodejs_compat` — UNVERIFIED, do-or-die.**
-   `Keypair.fromSecret()` + `tx.sign()` must work inside a V8 isolate. Bundling/booting is
-   confirmed fine; *signing and submitting a real tx is not*. If it fails, fallback is
-   `@noble/ed25519` + WebCrypto. If that also fails, the Workers choice is wrong — escalate,
-   don't paper over it.
+1. **Worker ed25519 / `nodejs_compat` — verified locally; deployed rehearsal remains.**
+   `Keypair.fromSecret()` + `tx.sign()` and Horizon submission have now produced a real
+   testnet transaction from local `wrangler dev`. Repeat the same check after deployment;
+   do not paper over a deployed-only failure.
 2. **`file:` URLs do not work at Worker runtime.** `@libsql/client/web` accepts only
    `libsql:` / `http(s):` / `ws(s):`. Run `turso dev --db-file local.db` (HTTP server) for
    `wrangler dev`. `file:./local.db` works *only* in Node-run scripts (drizzle-kit, seed).
