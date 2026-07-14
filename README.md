@@ -34,10 +34,11 @@ cp .env.example .env
 turso dev --db-file local.db          # keep running in its own terminal
 #  2. drizzle-kit / seed run under Node and can push straight to that server:
 pnpm --filter api drizzle:push        # create tables (set TURSO_URL=http://127.0.0.1:8080)
-pnpm --filter api db:seed             # fund accounts, issue USDC/IDR, seed DEX liquidity, print env vars
+pnpm --filter api db:seed             # fund accounts, issue IDR/VND/PHP, seed XLM bridge liquidity, print env vars
 
-# After db:seed, copy the printed USDC_ISSUER, IDR_ISSUER, DISTRIBUTOR_SECRET, and
-# RECEIVING_ANCHOR_PUBKEY into apps/api/.dev.vars, then restart wrangler dev.
+# After db:seed, copy the printed IDR_ISSUER, VND_ISSUER, PHP_ISSUER,
+# DISTRIBUTOR_SECRET, and RECEIVING_ANCHOR_PUBKEY into apps/api/.dev.vars,
+# then restart wrangler dev.
 
 # Run (two terminals, alongside `turso dev`)
 pnpm --filter web dev                 # Next.js dev

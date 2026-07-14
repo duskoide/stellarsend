@@ -111,7 +111,7 @@ transfer.post("/", async (c) => {
   return c.json(toTransfer(created!), 201);
 });
 
-// POST /transfers/:id/fund — trigger anchor deposit (SEP-24) / confirm stablecoin payment.
+// POST /transfers/:id/fund — trigger anchor deposit (SEP-24) / confirm source-asset payment.
 transfer.post("/:id/fund", async (c) => {
   const db = createDb(c.env);
   const tid = c.req.param("id");
@@ -145,7 +145,8 @@ transfer.post("/:id/fund", async (c) => {
 // POST /transfers/:id/submit — build & submit the path payment to Stellar.
 //
 // Destination note: the receiver holds NO Stellar account. The RECEIVING ANCHOR is the
-// on-chain destination (it receives IDR, then pays out fiat off-chain) — the SEP-31 shape.
+// on-chain destination (it receives the selected destination asset, then pays out fiat
+// off-chain) — the SEP-31 shape.
 transfer.post("/:id/submit", async (c) => {
   const db = createDb(c.env);
   const tid = c.req.param("id");

@@ -1,4 +1,5 @@
 // Path Payment (strict-receive): receiver is guaranteed an exact dest amount.
+// XLM is enforced as the intermediary bridge asset for the current MVP.
 // See spec §7. Owned by BE1.
 
 import {
@@ -9,6 +10,7 @@ import {
   BASE_FEE,
   Horizon,
 } from "@stellar/stellar-sdk";
+import Decimal from "decimal.js";
 import type { Env } from "../env.js";
 import { server, networkPassphrase } from "./horizon.js";
 
@@ -21,7 +23,14 @@ export interface PathPaymentParams {
   destAmount: string; // exact amount received
 }
 
-// Find the best (cheapest source) strict-receive path.
+/** Return true only when Horizon found native XLM as an intermediate hop. */
+export function hasXlmBridgeHop(
+  rec: Horizon.ServerApi.PaymentPathRecord,
+): boolean {
+  return (rec.path ?? []).some((hop: any) => hop.asset_type === "native");
+}
+
+// Find the best (cheapest source) strict-receive XLM-bridge path.
 export async function findBestPath(
   env: Env,
   sendAsset: Asset,
@@ -32,14 +41,21 @@ export async function findBestPath(
   const { records } = await srv
     .strictReceivePaths([sendAsset], destAsset, destAmount)
     .call();
-  // Cheapest source_amount first.
-  return records.sort(
-    (a, b) => Number(a.source_amount) - Number(b.source_amount),
-  )[0];
+
+  // A direct source/destination offer is not acceptable in this phase. The
+  // route must visibly include native XLM as the intermediary asset.
+  const bridged = records.filter(hasXlmBridgeHop);
+
+  // Cheapest source_amount first; amounts stay decimal strings throughout.
+  return bridged
+    .slice()
+    .sort((a, b) =>
+      new Decimal(a.source_amount).comparedTo(new Decimal(b.source_amount)),
+    )[0];
 }
 
 // Build (unsigned) a strict-receive path payment transaction.
-// `path` = intermediate hops from findBestPath(); [] lets Stellar use a direct offer.
+// `path` = intermediate hops from findBestPath().
 export async function buildPathPayment(
   env: Env,
   params: PathPaymentParams,
@@ -70,7 +86,9 @@ export async function buildPathPayment(
 // Map a Horizon path record's hops into Asset instances.
 function hopsToAssets(rec: Horizon.ServerApi.PaymentPathRecord): Asset[] {
   return (rec.path ?? []).map((p: any) =>
-    p.asset_type === "native" ? Asset.native() : new Asset(p.asset_code, p.asset_issuer),
+    p.asset_type === "native"
+      ? Asset.native()
+      : new Asset(p.asset_code, p.asset_issuer),
   );
 }
 
@@ -81,29 +99,37 @@ export interface SubmitResult {
   path: string[];
 }
 
-// Resolve best path → build → sign → submit. Returns hash + what was actually spent.
+// Resolve best XLM-bridge path → build → sign → submit.
+// Returns hash + what was actually spent.
 export async function submitPathPayment(
   env: Env,
   params: PathPaymentParams,
 ): Promise<SubmitResult> {
   const best = await findBestPath(env, params.sendAsset, params.destAsset, params.destAmount);
 
-  // No path = no liquidity for this pair/amount on the DEX. Fail loudly, don't submit.
+  // No XLM bridge path = no executable liquidity for this pair/amount.
   if (!best) {
     throw new Error(
-      `No path found: ${params.sendAsset.getCode()} → ${params.destAsset.getCode()} ` +
-        `for ${params.destAmount}. Is the order book seeded?`,
+      `No XLM bridge path found: ${params.sendAsset.getCode()} → ${params.destAsset.getCode()} ` +
+        `for ${params.destAmount}. Seed source/XLM and XLM/destination liquidity.`,
     );
   }
 
+  const sourceCost = new Decimal(best.source_amount);
+  const sendMax = new Decimal(params.sendMax);
+
   // Guard: refuse if the market moved past our sendMax rather than overspending.
-  if (Number(best.source_amount) > Number(params.sendMax)) {
+  if (sourceCost.gt(sendMax)) {
     throw new Error(
       `Path cost ${best.source_amount} exceeds sendMax ${params.sendMax} — re-quote.`,
     );
   }
 
   const hops = hopsToAssets(best);
+  if (!hops.some((asset) => asset.isNative())) {
+    throw new Error("Resolved path does not contain the required XLM bridge hop.");
+  }
+
   const tx = await buildPathPayment(env, params, hops);
   tx.sign(Keypair.fromSecret(params.sourceSecret));
 

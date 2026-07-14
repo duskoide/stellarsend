@@ -1,5 +1,5 @@
-// Mock anchor (SEP-24/31 shaped). Stands in for a real Indonesian anchor: receives IDR
-// on-chain, pays out fiat to a bank/e-wallet off-chain, then calls back.
+// Mock anchor (SEP-24/31 shaped). Stands in for a regional anchor: receives the selected
+// destination asset on-chain, pays out fiat to a bank/e-wallet off-chain, then calls back.
 //
 // The SHAPE is what matters — a real anchor swap means replacing this file, not the callers.
 // A real anchor calls back asynchronously (seconds to minutes); we simulate that by writing
@@ -18,7 +18,7 @@ export interface WithdrawResult {
 }
 
 /**
- * Simulate an anchor withdraw: IDR (on-chain, held by the anchor) → fiat payout.
+ * Simulate an anchor withdraw: destination asset (on-chain, held by the anchor) → fiat payout.
  *
  * Idempotent: if the transfer is already COMPLETED, this is a no-op. Queue delivery is
  * at-least-once, so this WILL be called twice — paying out twice would be a real bug.

@@ -51,9 +51,9 @@
 
 **Alur transaksi (happy path):**
 1. Sender input jumlah + pilih penerima → sistem hitung quote (rate + fee).
-2. Sender fund via sending anchor (SEP-24 deposit) atau langsung bayar stablecoin.
-3. Backend eksekusi **Path Payment** di Stellar. Current demo baseline: `USDC-demo → IDR-token`. Candidate multi-hop route: `[SourceAsset] → XLM → IDR-token` (lihat §7.1).
-4. Receiving anchor (SEP-31/SEP-24) terima IDR-token → payout ke rekening bank / e-wallet penerima.
+2. Sender fund via sending anchor (SEP-24 deposit) atau langsung bayar source asset yang didukung.
+3. Backend eksekusi **Path Payment** di Stellar: `[SourceAsset] → XLM → [DestinationAsset]`, dengan source dan destination dari `IDR`, `VND`, atau `PHP` (lihat §7.1).
+4. Receiving anchor (SEP-31/SEP-24) terima destination asset → payout ke rekening bank / e-wallet penerima.
 5. Kedua pihak dapat notifikasi + status real-time.
 
 > **Catatan MVP:** untuk hackathon, pakai **Stellar Testnet** + **mock anchor** yang kamu kontrol (atau anchor demo publik). Ini menghindari blocker KYC/regulasi produksi sambil tetap mendemonstrasikan alur SEP end-to-end.
@@ -139,7 +139,7 @@ stellarsend/
 │       │   ├── stellar/
 │       │   │   ├── horizon.ts    # koneksi Horizon (fetch)
 │       │   │   ├── pathPayment.ts# build path payment op
-│       │   │   ├── assets.ts     # definisi asset (USDC, IDR-token)
+│       │   │   ├── assets.ts     # definisi asset IDR/VND/PHP + XLM bridge
 │       │   │   └── account.ts    # keypair, trustline (butuh nodejs_compat)
 │       │   ├── queues/           # Cloudflare Queues consumers
 │       │   │   ├── settlement.ts # poll status settlement
@@ -321,12 +321,12 @@ Base URL: `/api/v1`
 ```json
 {
   "quoteId": "clq_abc123",
-  "sourceAsset": "USDC",
-  "sourceAmount": "100.0000000",
+  "sourceAsset": "VND",
+  "sourceAmount": "1000.0000000",
   "destAsset": "IDR",
-  "destAmount": "1587000.0000000",
-  "exchangeRate": "15870.0000000",
-  "feeAmount": "0.5000000",
+  "destAmount": "2133.3333333",
+  "exchangeRate": "2.1333333",
+  "feeAmount": "0.0500000",
   "expiresAt": "2026-07-15T10:31:00Z"
 }
 ```
@@ -347,7 +347,7 @@ import {
 export async function buildPathPayment(params: {
   sourceSecret: string;
   destPublicKey: string;
-  sendAsset: Asset;       // mis. USDC
+  sendAsset: Asset;       // mis. VND
   sendMax: string;        // batas atas yang mau dikirim
   destAsset: Asset;       // mis. IDR-token
   destAmount: string;     // jumlah pasti diterima
@@ -389,13 +389,13 @@ Pemanggilan Horizon via `fetch` native sudah kompatibel. **Spike** pembuatan & s
 transaksi di dalam Worker sejak hari pertama — ini satu-satunya risiko runtime yang
 load-bearing untuk submit path payment.
 
-### 7.1 Keputusan Bridge Asset: XLM vs USDC (DITUNDA)
+### 7.1 Keputusan Bridge Asset: XLM (CURRENT MVP)
 
-**Status:** keputusan bridge asset ditunda sampai route XLM menghasilkan transaksi Testnet yang sukses dan dapat diverifikasi di Stellar Expert. Jangan menghapus current USDC happy path sebelum gate ini terpenuhi.
+**Status:** backend saat ini memilih XLM sebagai bridge asset. Route wajib memakai native XLM sebagai intermediary hop; USDC/stablecoin tetap menjadi opsi production/roadmap, bukan current backend path.
 
 #### Opsi route
 
-**Current baseline — USDC demo asset:**
+**Legacy/fallback reference — USDC demo asset:**
 
 ```text
 USDC-demo → IDR-token → receiving anchor → IDR fiat (mock payout)
@@ -403,7 +403,7 @@ USDC-demo → IDR-token → receiving anchor → IDR fiat (mock payout)
 
 `seed-stellar.ts` saat ini membuat issuer USDC secara acak. Karena asset Stellar diidentifikasi oleh kombinasi `asset code + issuer`, asset ini adalah **demo token**, bukan USDC yang benar-benar didukung USD. Production harus memakai issuer/anchor yang diverifikasi.
 
-**Candidate Stellar-native route — XLM sebagai bridge:**
+**Current Stellar-native route — XLM sebagai bridge:**
 
 ```text
 VND/PHP token → [XLM] → IDR-token → receiving anchor → IDR fiat (mock payout)
@@ -439,15 +439,15 @@ Dalam flow ini XLM adalah **source asset**, bukan intermediary hop.
 - XLM route membutuhkan liquidity yang cukup dan dapat menghasilkan spread/slippage yang lebih besar daripada USDC.
 - Semua issued asset (`VND`, `PHP`, `IDR`) wajib menggunakan issuer yang tepat; asset code saja tidak cukup.
 
-#### Gate sebelum XLM menjadi default demo
+#### Operational verification untuk current XLM route
 
-1. Pilih satu source asset terlebih dahulu (`VND` atau `PHP`); jangan seed semua corridor sekaligus.
-2. Seed dan verifikasi liquidity untuk `source/XLM` dan `XLM/IDR` di Testnet.
+1. Seed issuer, trustline, dan liquidity untuk `IDR`, `VND`, dan `PHP`.
+2. Seed dan verifikasi liquidity untuk setiap `source/XLM` dan `XLM/destination` pair di Testnet.
 3. Request quote dengan `strictReceivePaths`/`strictSendPaths` dan pastikan path yang dipilih benar-benar berisi native XLM.
-4. Jika XLM wajib menjadi bridge, kirim explicit path `[Asset.native()]` atau reject route yang tidak memuat `XLM`; jangan biarkan direct offer diam-diam melewati XLM.
+4. Reject direct route yang tidak memuat `XLM`; jangan biarkan direct offer diam-diam melewati bridge.
 5. Gunakan quote TTL, `sendMax`, dan strict-receive protection. Re-quote jika market bergerak melewati slippage limit.
 6. Pastikan distributor/user memiliki XLM tambahan untuk network fee dan account reserve.
-7. Submit transaksi dan simpan hash yang membuka di Stellar Expert. Hanya setelah gate ini lulus XLM boleh menggantikan current USDC happy path.
+7. Submit transaksi dan simpan hash yang membuka di Stellar Expert; route yang gagal harus dilaporkan sebagai error, bukan diberi rate atau hash palsu.
 
 **Keputusan arsitektur jangka panjang:** bridge asset sebaiknya configurable. Gunakan XLM bila native liquidity dan settlement cepat lebih menguntungkan; gunakan USDC/stable asset bila predictable fiat pricing lebih penting. Untuk hackathon, XLM adalah candidate yang kuat, tetapi tidak boleh dipresentasikan sebagai stable asset.
 
@@ -467,7 +467,7 @@ Dalam flow ini XLM adalah **source asset**, bukan intermediary hop.
 1. Auth sederhana (email + JWT).
 2. Halaman Send: input jumlah + pilih/buat beneficiary.
 3. Quote real dari Horizon path payment.
-4. Eksekusi path payment di **Testnet** (current baseline `USDC-demo → IDR-token`; XLM bridge option tracked in §7.1) — tampilkan tx hash + link ke Stellar Expert.
+4. Eksekusi path payment di **Testnet** (`[IDR|VND|PHP] → XLM → [IDR|VND|PHP]`) — tampilkan tx hash + link ke Stellar Expert.
 5. Halaman status dengan stepper (TransferEvent).
 6. Halaman klaim receiver + simulasi payout (mock anchor callback).
 
@@ -530,8 +530,10 @@ HORIZON_URL=https://horizon-testnet.stellar.org
 STELLAR_NETWORK=TESTNET
 JWT_SECRET=changeme
 DISTRIBUTOR_SECRET=S...          # keypair distributor (funded via friendbot)
-USDC_ISSUER=G...
 IDR_ISSUER=G...
+VND_ISSUER=G...
+PHP_ISSUER=G...
+RECEIVING_ANCHOR_PUBKEY=G...
 # Binding Cloudflare (wrangler.toml): DB = Turso, QUEUE_SETTLEMENT, QUEUE_PAYOUT, Cron schedule
 ```
 

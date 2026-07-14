@@ -8,8 +8,9 @@ export interface Env {
   STELLAR_NETWORK: "TESTNET" | "PUBLIC";
   JWT_SECRET: string;
   DISTRIBUTOR_SECRET: string;
-  USDC_ISSUER: string;
   IDR_ISSUER: string;
+  VND_ISSUER: string;
+  PHP_ISSUER: string;
   RECEIVING_ANCHOR_PUBKEY: string; // on-chain destination for path payment (SEP-31 shape)
 
   // Queue bindings

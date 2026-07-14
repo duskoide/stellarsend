@@ -1,29 +1,60 @@
-// Seed Stellar testnet: accounts, trustlines, asset issuance, and ORDER BOOK liquidity
-// so strictReceivePaths() can find a USDC → IDR path.
+// Seed Stellar testnet with IDR, VND, and PHP demo assets plus XLM bridge liquidity.
 //
-// Without order-book liquidity, submit fails with "No path found". This script is what
-// makes the demo possible. Run BEFORE db:seed.
+// Each cross-currency route is intentionally:
+//   source asset -> XLM -> destination asset
+//
+// Without the XLM/local-currency offers, strictSendPaths/strictReceivePaths cannot
+// find an executable path and the API correctly refuses to quote or submit.
+//
+// Run BEFORE db:seed:
 //   pnpm --filter api tsx drizzle/seed-stellar.ts
 //
 // Runs under Node (tsx), NOT the Worker — process.env is fine here.
 
 import "dotenv/config";
 import {
-  Keypair, Horizon, TransactionBuilder, Operation, Asset, BASE_FEE, Networks,
+  Keypair,
+  Horizon,
+  TransactionBuilder,
+  Operation,
+  Asset,
+  BASE_FEE,
+  Networks,
 } from "@stellar/stellar-sdk";
+import Decimal from "decimal.js";
 
-const server = new Horizon.Server(process.env.HORIZON_URL ?? "https://horizon-testnet.stellar.org");
+const server = new Horizon.Server(
+  process.env.HORIZON_URL ?? "https://horizon-testnet.stellar.org",
+);
 const NET = Networks.TESTNET;
+
+type LocalCode = "IDR" | "VND" | "PHP";
+
+type Market = {
+  code: LocalCode;
+  issuer: Keypair;
+  asset: Asset;
+  localPerXlm: string;
+  distributorAmount: string;
+  marketMakerAmount: string;
+};
+
+type PathRecord = Horizon.ServerApi.PaymentPathRecord;
 
 async function fund(kp: Keypair, label: string) {
   const r = await fetch(`https://friendbot.stellar.org/?addr=${kp.publicKey()}`);
-  if (!r.ok && r.status !== 400) throw new Error(`friendbot ${label}: ${r.status}`);
+  if (!r.ok && r.status !== 400) {
+    throw new Error(`friendbot ${label}: ${r.status}`);
+  }
   console.log(`  funded ${label}: ${kp.publicKey()}`);
 }
 
 async function submit(kp: Keypair, ops: any[], label: string) {
   const acct = await server.loadAccount(kp.publicKey());
-  const b = new TransactionBuilder(acct, { fee: BASE_FEE, networkPassphrase: NET });
+  const b = new TransactionBuilder(acct, {
+    fee: BASE_FEE,
+    networkPassphrase: NET,
+  });
   ops.forEach((o) => b.addOperation(o));
   const tx = b.setTimeout(60).build();
   tx.sign(kp);
@@ -31,109 +62,239 @@ async function submit(kp: Keypair, ops: any[], label: string) {
     const res = await server.submitTransaction(tx);
     console.log(`  ok ${label} - ${res.hash.slice(0, 12)}...`);
   } catch (e: any) {
-    console.error(`  FAIL ${label}:`, JSON.stringify(e?.response?.data?.extras?.result_codes ?? e.message));
+    console.error(
+      `  FAIL ${label}:`,
+      JSON.stringify(e?.response?.data?.extras?.result_codes ?? e.message),
+    );
     throw e;
   }
 }
 
-async function main() {
-  console.log("Seeding Stellar testnet...\n");
+function hasXlmBridgeHop(record: PathRecord): boolean {
+  return (record.path ?? []).some((hop: any) => hop.asset_type === "native");
+}
 
-  // Issuer != distributor (Stellar best practice).
-  const usdcIssuer = Keypair.random();
-  const idrIssuer = Keypair.random();
-  // Distributor: the account the Worker signs with (sends USDC).
+function pathLabel(record: PathRecord | undefined): string {
+  if (!record) return "none";
+  return (record.path ?? [])
+    .map((hop: any) =>
+      hop.asset_type === "native" ? "XLM" : `${hop.asset_code}:${hop.asset_issuer}`,
+    )
+    .join(" → ") || "direct";
+}
+
+async function main() {
+  console.log("Seeding Stellar testnet with XLM bridge markets...\n");
+
+  // Issuer accounts stay separate from the distributor and market maker.
+  const issuers: Record<LocalCode, Keypair> = {
+    IDR: Keypair.random(),
+    VND: Keypair.random(),
+    PHP: Keypair.random(),
+  };
+
+  // Reuse the configured distributor when available so the Worker can submit
+  // with the printed/current DISTRIBUTOR_SECRET after this script completes.
   const envSecret = process.env.DISTRIBUTOR_SECRET;
-  const distributor = envSecret && envSecret.startsWith("S") && envSecret !== "S..."
-    ? Keypair.fromSecret(envSecret)
-    : Keypair.random();
-  // Receiving anchor: on-chain destination for the IDR leg (receiver has no wallet).
+  const distributor =
+    envSecret && envSecret.startsWith("S") && envSecret !== "S..."
+      ? Keypair.fromSecret(envSecret)
+      : Keypair.random();
+
+  // The receiving anchor is the on-chain destination for every supported
+  // destination asset; the receiver has no Stellar account in the MVP.
   const anchor = Keypair.random();
-  // Market maker: posts the USDC<->IDR offer that makes a path exist.
   const mm = Keypair.random();
 
+  const markets: Market[] = [
+    {
+      code: "IDR",
+      issuer: issuers.IDR,
+      asset: new Asset("IDR", issuers.IDR.publicKey()),
+      localPerXlm: "16000",
+      distributorAmount: "1000000000",
+      marketMakerAmount: "100000000000",
+    },
+    {
+      code: "VND",
+      issuer: issuers.VND,
+      asset: new Asset("VND", issuers.VND.publicKey()),
+      localPerXlm: "7500",
+      distributorAmount: "1000000000",
+      marketMakerAmount: "100000000000",
+    },
+    {
+      code: "PHP",
+      issuer: issuers.PHP,
+      asset: new Asset("PHP", issuers.PHP.publicKey()),
+      localPerXlm: "28",
+      distributorAmount: "1000000000",
+      marketMakerAmount: "1000000000",
+    },
+  ];
+  const XLM = Asset.native();
+
   console.log("1. Funding accounts via friendbot...");
-  for (const [kp, l] of [[usdcIssuer, "usdcIssuer"], [idrIssuer, "idrIssuer"],
-                         [distributor, "distributor"], [anchor, "anchor"], [mm, "marketMaker"]] as const) {
-    await fund(kp, l);
+  const funding: Array<[Keypair, string]> = [
+    [issuers.IDR, "idrIssuer"],
+    [issuers.VND, "vndIssuer"],
+    [issuers.PHP, "phpIssuer"],
+    [distributor, "distributor"],
+    [anchor, "receivingAnchor"],
+    [mm, "marketMaker"],
+  ];
+  for (const [kp, label] of funding) {
+    await fund(kp, label);
   }
 
-  const USDC = new Asset("USDC", usdcIssuer.publicKey());
-  const IDR = new Asset("IDR", idrIssuer.publicKey());
+  console.log("\n2. Trustlines for all local assets...");
+  await submit(
+    distributor,
+    markets.map((market) =>
+      Operation.changeTrust({
+        asset: market.asset,
+        limit: market.distributorAmount,
+      }),
+    ),
+    "distributor -> IDR + VND + PHP",
+  );
+  await submit(
+    anchor,
+    markets.map((market) =>
+      Operation.changeTrust({
+        asset: market.asset,
+        limit: "100000000000",
+      }),
+    ),
+    "receiving anchor -> IDR + VND + PHP",
+  );
+  await submit(
+    mm,
+    markets.map((market) =>
+      Operation.changeTrust({
+        asset: market.asset,
+        limit: market.marketMakerAmount,
+      }),
+    ),
+    "market maker -> IDR + VND + PHP",
+  );
 
-  console.log("\n2. Trustlines...");
-  await submit(distributor, [Operation.changeTrust({ asset: USDC, limit: "10000000" })], "distributor -> USDC");
-  await submit(anchor, [Operation.changeTrust({ asset: IDR, limit: "100000000000" })], "anchor -> IDR");
-  await submit(mm, [
-    Operation.changeTrust({ asset: USDC, limit: "10000000" }),
-    Operation.changeTrust({ asset: IDR, limit: "100000000000" }),
-  ], "marketMaker -> USDC + IDR");
+  console.log("\n3. Issuing demo local assets...");
+  for (const market of markets) {
+    await submit(
+      market.issuer,
+      [
+        Operation.payment({
+          destination: distributor.publicKey(),
+          asset: market.asset,
+          amount: market.distributorAmount,
+        }),
+        Operation.payment({
+          destination: mm.publicKey(),
+          asset: market.asset,
+          amount: market.marketMakerAmount,
+        }),
+      ],
+      `issue ${market.code}`,
+    );
+  }
 
-  console.log("\n3. Issuing assets...");
-  await submit(usdcIssuer, [
-    Operation.payment({ destination: distributor.publicKey(), asset: USDC, amount: "1000000" }),
-    Operation.payment({ destination: mm.publicKey(), asset: USDC, amount: "1000000" }),
-  ], "issue USDC");
-  await submit(idrIssuer, [
-    Operation.payment({ destination: mm.publicKey(), asset: IDR, amount: "50000000000" }),
-  ], "issue IDR to marketMaker");
+  console.log("\n4. Seeding XLM/local order books...");
+  // The market maker sells XLM and buys each local asset. These offers support
+  // both legs of a route: source -> XLM and XLM -> destination.
+  const levelMultipliers = ["1", "1.01", "1.02"];
+  const bridgeOffers = markets.flatMap((market) =>
+    levelMultipliers.map((multiplier) => ({
+      market,
+      amount: "300",
+      price: new Decimal(market.localPerXlm).mul(multiplier).toFixed(7),
+    })),
+  );
+  await submit(
+    mm,
+    bridgeOffers.map(({ market, amount, price }) =>
+      Operation.manageSellOffer({
+        selling: XLM,
+        buying: market.asset,
+        amount,
+        price,
+        offerId: "0",
+      }),
+    ),
+    "XLM -> IDR + VND + PHP bridge offers",
+  );
 
-  console.log("\n4. Seeding order book (THIS is what makes a path exist)...");
-  // MM sells IDR, buys USDC. price = USDC per 1 IDR.
-  // ~Rp16,000/USDC -> 1 IDR ~= 0.0000625 USDC. Multiple levels = depth.
-  const levels = [
-    { amount: "5000000000", price: "0.0000625" },
-    { amount: "5000000000", price: "0.0000630" },
-    { amount: "5000000000", price: "0.0000640" },
-  ];
-  await submit(mm, levels.map((l) =>
-    Operation.manageSellOffer({ selling: IDR, buying: USDC, amount: l.amount, price: l.price, offerId: "0" }),
-  ), "IDR/USDC sell offers");
-
-  // Print keys BEFORE verification — a failed verify must never lose the keypairs.
+  // Print keys BEFORE verification — a failed verify must never lose keypairs.
   console.log("\n" + "=".repeat(62));
-  console.log("Copy into .env (and `wrangler secret put` for deploy):\n");
-  console.log(`USDC_ISSUER=${usdcIssuer.publicKey()}`);
-  console.log(`IDR_ISSUER=${idrIssuer.publicKey()}`);
+  console.log("Copy into apps/api/.dev.vars (and use wrangler secrets in prod):\n");
+  console.log(`IDR_ISSUER=${issuers.IDR.publicKey()}`);
+  console.log(`VND_ISSUER=${issuers.VND.publicKey()}`);
+  console.log(`PHP_ISSUER=${issuers.PHP.publicKey()}`);
   console.log(`DISTRIBUTOR_SECRET=${distributor.secret()}`);
   console.log(`RECEIVING_ANCHOR_PUBKEY=${anchor.publicKey()}`);
   console.log("\n# keep safe (needed to re-seed offers later):");
   console.log(`# MARKET_MAKER_SECRET=${mm.secret()}`);
   console.log("=".repeat(62));
 
-  console.log("\n5. Verifying a path exists...");
-  // Horizon indexes offers a few seconds AFTER the tx lands in a ledger. Querying
-  // immediately returns nothing even though the offers are on-chain. Retry with backoff.
-  let best: any = undefined;
+  console.log("\n5. Verifying every cross-currency XLM route...");
+  const pairs = markets.flatMap((source) =>
+    markets
+      .filter((destination) => destination.code !== source.code)
+      .map((destination) => ({ source, destination })),
+  );
+
+  let allVerified = false;
   for (let attempt = 1; attempt <= 8; attempt++) {
-    await new Promise((r) => setTimeout(r, 3000));
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    const missing: string[] = [];
 
-    // The direction /quote actually uses: "I spend N USDC, how much IDR arrives?"
-    const send = await server.strictSendPaths(USDC, "99.5", [IDR]).call();
-    // The direction /submit uses: "I want exactly N IDR, how much USDC does it cost?"
-    const recv = await server.strictReceivePaths([USDC], IDR, "1600000").call();
+    for (const { source, destination } of pairs) {
+      try {
+        const send = await server
+          .strictSendPaths(source.asset, "100", [destination.asset])
+          .call();
+        const receive = await server
+          .strictReceivePaths([source.asset], destination.asset, "100")
+          .call();
+        const sendPath = send.records.find(hasXlmBridgeHop);
+        const receivePath = receive.records.find(hasXlmBridgeHop);
 
-    console.log(
-      `  attempt ${attempt}/8 — strictSend: ${send.records.length} path(s), ` +
-        `strictReceive: ${recv.records.length} path(s)`,
-    );
+        console.log(
+          `  ${source.code} -> ${destination.code}: ` +
+            `strictSend=${send.records.length} (${pathLabel(sendPath)}), ` +
+            `strictReceive=${receive.records.length} (${pathLabel(receivePath)})`,
+        );
 
-    if (send.records[0] && recv.records[0]) {
-      best = { send: send.records[0], recv: recv.records[0] };
+        if (!sendPath || !receivePath) {
+          missing.push(`${source.code} -> ${destination.code}`);
+        }
+      } catch (e: any) {
+        missing.push(`${source.code} -> ${destination.code}: ${e?.message ?? e}`);
+      }
+    }
+
+    if (missing.length === 0) {
+      allVerified = true;
+      console.log(`  all ${pairs.length} cross-currency routes verified`);
       break;
     }
+
+    console.log(
+      `  attempt ${attempt}/8 still waiting for: ${missing.join(", ")}`,
+    );
   }
 
-  if (!best) {
-    console.error("\n  FAIL: NO PATH FOUND after retries.");
-    console.error("  The offers ARE on-chain (step 4 succeeded), so this is not a signing issue.");
-    console.error("  Debug with: pnpm --filter api exec tsx drizzle/diagnose.ts");
+  if (!allVerified) {
+    console.error("\nFAIL: one or more XLM bridge routes were not found.");
+    console.error("The offers were submitted, but Horizon may still be indexing them.");
+    console.error("Debug with: pnpm --filter api exec tsx drizzle/diagnose.ts");
     process.exit(1);
   }
-
-  console.log(`  ok strictSend:    99.5 USDC -> ${best.send.destination_amount} IDR`);
-  console.log(`  ok strictReceive: ${best.recv.source_amount} USDC -> 1,600,000 IDR`);
-
 }
 
-main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+main()
+  .then(() => process.exit(0))
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });

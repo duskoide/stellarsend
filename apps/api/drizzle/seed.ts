@@ -41,10 +41,12 @@ async function main() {
     console.warn("Friendbot request failed (offline?):", err);
   }
 
-  // TODO(BE2/BE1): create trustlines to USDC/IDR issuers and seed an order
-  // book on testnet DEX so strictReceivePaths() finds liquidity (spec §11).
+  // TODO(BE2/BE1): create trustlines to IDR/VND/PHP issuers and seed
+  // XLM bridge order books on testnet DEX (spec §7.1).
 
-  console.log("Seed complete. Remember to set USDC_ISSUER / IDR_ISSUER in .env.");
+  console.log(
+    "Seed complete. Remember to set IDR_ISSUER / VND_ISSUER / PHP_ISSUER in .env.",
+  );
 }
 
 main()

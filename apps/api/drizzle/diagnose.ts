@@ -1,58 +1,93 @@
-// Diagnose why strictSendPaths / strictReceivePaths finds no path.
+// Diagnose XLM bridge liquidity and strictSend/strictReceive path discovery.
 // Run: pnpm --filter api exec tsx drizzle/diagnose.ts
 import "dotenv/config";
 import { Horizon, Asset } from "@stellar/stellar-sdk";
 
-const server = new Horizon.Server(process.env.HORIZON_URL ?? "https://horizon-testnet.stellar.org");
+type LocalCode = "IDR" | "VND" | "PHP";
 
-const USDC_ISSUER = process.env.USDC_ISSUER!;
-const IDR_ISSUER = process.env.IDR_ISSUER!;
-const DIST = process.env.DISTRIBUTOR_PUBKEY; // optional
+const server = new Horizon.Server(
+  process.env.HORIZON_URL ?? "https://horizon-testnet.stellar.org",
+);
 
-if (!USDC_ISSUER?.startsWith("G") || !IDR_ISSUER?.startsWith("G")) {
-  console.error("Set USDC_ISSUER and IDR_ISSUER in .env first (from seed output).");
+const issuerByCode: Record<LocalCode, string | undefined> = {
+  IDR: process.env.IDR_ISSUER,
+  VND: process.env.VND_ISSUER,
+  PHP: process.env.PHP_ISSUER,
+};
+
+const missingIssuers = Object.entries(issuerByCode)
+  .filter(([, issuer]) => !issuer?.startsWith("G"))
+  .map(([code]) => `${code}_ISSUER`);
+
+if (missingIssuers.length > 0) {
+  console.error(`Set ${missingIssuers.join(", ")} in .env first (from seed output).`);
   process.exit(1);
 }
 
-const USDC = new Asset("USDC", USDC_ISSUER);
-const IDR = new Asset("IDR", IDR_ISSUER);
+const assets: Record<LocalCode, Asset> = {
+  IDR: new Asset("IDR", issuerByCode.IDR!),
+  VND: new Asset("VND", issuerByCode.VND!),
+  PHP: new Asset("PHP", issuerByCode.PHP!),
+};
+const XLM = Asset.native();
+
+type PathRecord = Horizon.ServerApi.PaymentPathRecord;
+
+function hasXlmBridgeHop(record: PathRecord): boolean {
+  return (record.path ?? []).some((hop: any) => hop.asset_type === "native");
+}
+
+function pathLabel(record: PathRecord | undefined): string {
+  if (!record) return "none";
+  return (
+    record.path ?? []
+  )
+    .map((hop: any) =>
+      hop.asset_type === "native" ? "XLM" : `${hop.asset_code}:${hop.asset_issuer}`,
+    )
+    .join(" → ") || "direct";
+}
 
 async function main() {
-  console.log("USDC issuer:", USDC_ISSUER);
-  console.log("IDR  issuer:", IDR_ISSUER);
-
-  console.log("\n=== 1. ORDER BOOK: selling IDR, buying USDC ===");
-  const ob = await server.orderbook(IDR, USDC).call();
-  console.log("  bids:", ob.bids.length, "asks:", ob.asks.length);
-  ob.asks.slice(0, 3).forEach((a) => console.log(`    ask  amount=${a.amount} price=${a.price}`));
-  ob.bids.slice(0, 3).forEach((b) => console.log(`    bid  amount=${b.amount} price=${b.price}`));
-
-  console.log("\n=== 2. ORDER BOOK: selling USDC, buying IDR (inverse view) ===");
-  const ob2 = await server.orderbook(USDC, IDR).call();
-  console.log("  bids:", ob2.bids.length, "asks:", ob2.asks.length);
-  ob2.asks.slice(0, 3).forEach((a) => console.log(`    ask  amount=${a.amount} price=${a.price}`));
-  ob2.bids.slice(0, 3).forEach((b) => console.log(`    bid  amount=${b.amount} price=${b.price}`));
-
-  console.log("\n=== 3. strictSendPaths: spend USDC -> get IDR (what /quote uses) ===");
-  for (const amt of ["1", "10", "99.5000000", "100"]) {
-    try {
-      const r = await server.strictSendPaths(USDC, amt, [IDR]).call();
-      console.log(`  send ${amt} USDC -> ${r.records.length} path(s)` +
-        (r.records[0] ? ` | best dest=${r.records[0].destination_amount} IDR` : ""));
-    } catch (e: any) {
-      console.log(`  send ${amt} USDC -> ERROR ${e?.message}`);
-    }
+  console.log("XLM bridge diagnostics\n");
+  for (const code of Object.keys(assets) as LocalCode[]) {
+    const book = await server.orderbook(XLM, assets[code]).call();
+    console.log(
+      `XLM/${code}: bids=${book.bids.length}, asks=${book.asks.length}`,
+    );
   }
 
-  console.log("\n=== 4. strictReceivePaths: want IDR -> pay USDC (what /submit uses) ===");
-  for (const amt of ["1000", "100000", "1600000"]) {
-    try {
-      const r = await server.strictReceivePaths([USDC], IDR, amt).call();
-      console.log(`  receive ${amt} IDR -> ${r.records.length} path(s)` +
-        (r.records[0] ? ` | best src=${r.records[0].source_amount} USDC` : ""));
-    } catch (e: any) {
-      console.log(`  receive ${amt} IDR -> ERROR ${e?.message}`);
+  for (const sourceCode of Object.keys(assets) as LocalCode[]) {
+    for (const destinationCode of Object.keys(assets) as LocalCode[]) {
+      if (sourceCode === destinationCode) continue;
+
+      const source = assets[sourceCode];
+      const destination = assets[destinationCode];
+      try {
+        const send = await server
+          .strictSendPaths(source, "100", [destination])
+          .call();
+        const receive = await server
+          .strictReceivePaths([source], destination, "100")
+          .call();
+        const sendPath = send.records.find(hasXlmBridgeHop);
+        const receivePath = receive.records.find(hasXlmBridgeHop);
+
+        console.log(
+          `${sourceCode} -> ${destinationCode}: ` +
+            `strictSend=${send.records.length} (${pathLabel(sendPath)}), ` +
+            `strictReceive=${receive.records.length} (${pathLabel(receivePath)})`,
+        );
+      } catch (e: any) {
+        console.log(
+          `${sourceCode} -> ${destinationCode}: ERROR ${e?.message ?? e}`,
+        );
+      }
     }
   }
 }
-main().catch((e) => { console.error(e); process.exit(1); });
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

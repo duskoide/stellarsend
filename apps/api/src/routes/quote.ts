@@ -1,8 +1,9 @@
 // Quote route: real rate discovery via Horizon strict-SEND paths.
 //
-// Direction matters: the sender knows how much they want to SPEND (e.g. 100 USDC) and
-// asks how much IDR arrives. That is strictSendPaths(sourceAsset, sourceAmount, [destAsset]).
-// (strictReceivePaths is the inverse — used at submit time, where destAmount is locked.)
+// Direction matters: the sender knows how much they want to SPEND (e.g. 100 VND) and
+// asks how much the destination currency arrives. That is strictSendPaths(sourceAsset,
+// sourceAmount, [destAsset]). (strictReceivePaths is the inverse — used at submit time,
+// where destAmount is locked.)
 //
 // There is deliberately NO hardcoded fallback rate. If the DEX has no path, we fail loudly:
 // a quote the user can't actually execute is worse than an error (it fails at submit instead,
@@ -12,7 +13,12 @@ import { Hono } from "hono";
 import Decimal from "decimal.js";
 import type { AppContext } from "../env.js";
 import { createDb, schema } from "../db/client.js";
-import { assetFromCode } from "../stellar/assets.js";
+import {
+  assetFromCode,
+  normalizeAssetCode,
+  type FiatAssetCode,
+} from "../stellar/assets.js";
+import { hasXlmBridgeHop } from "../stellar/pathPayment.js";
 import { server } from "../stellar/horizon.js";
 import { badRequest } from "../utils/errors.js";
 import { id } from "../utils/id.js";
@@ -22,7 +28,7 @@ import type { Quote, QuoteRequest } from "@stellarsend/shared";
 const quote = new Hono<AppContext>();
 
 // Demo service fee, taken on the source side before hitting the DEX.
-// 0.005% = 0.005 USDC on a 100 USDC transfer, keeping the pitch fee below $0.01.
+// 0.005% of the selected source currency keeps the demo fee below a cent-equivalent.
 const FEE_RATE = new Decimal("0.00005");
 
 quote.post("/", async (c) => {
@@ -36,8 +42,17 @@ quote.post("/", async (c) => {
     throw badRequest("sourceAmount must be a positive number");
   }
 
-  const sendAsset = assetFromCode(body.sourceAsset, c.env);
-  const destAsset = assetFromCode(body.destAsset, c.env);
+  let sourceCode: FiatAssetCode;
+  let destCode: FiatAssetCode;
+  try {
+    sourceCode = normalizeAssetCode(body.sourceAsset);
+    destCode = normalizeAssetCode(body.destAsset);
+  } catch (err) {
+    throw badRequest(err instanceof Error ? err.message : String(err));
+  }
+
+  const sendAsset = assetFromCode(sourceCode, c.env);
+  const destAsset = assetFromCode(destCode, c.env);
 
   // Fee comes off the top; only the remainder is actually routed through the DEX.
   const fee = source.mul(FEE_RATE);
@@ -49,7 +64,9 @@ quote.post("/", async (c) => {
     const res = await server(c.env)
       .strictSendPaths(sendAsset, netSource.toFixed(STELLAR_DECIMALS), [destAsset])
       .call();
-    records = res.records;
+    // Only quote paths that actually use native XLM as the bridge. A direct
+    // source/destination offer must not silently bypass the selected route.
+    records = res.records.filter(hasXlmBridgeHop);
   } catch (err: any) {
     throw badRequest(
       "Could not reach Horizon for path discovery",
@@ -65,8 +82,8 @@ quote.post("/", async (c) => {
   if (!best) {
     // No liquidity → no executable quote. Never invent a rate here.
     throw badRequest(
-      `No path ${body.sourceAsset} → ${body.destAsset} for ${body.sourceAmount}. ` +
-        `The DEX order book has no route — seed it (drizzle/seed-stellar.ts) or lower the amount.`,
+      `No XLM bridge path ${sourceCode} → ${destCode} for ${body.sourceAmount}. ` +
+        `Seed source/XLM and XLM/destination liquidity — see drizzle/seed-stellar.ts.`,
     );
   }
 
@@ -77,9 +94,9 @@ quote.post("/", async (c) => {
 
   const row = {
     id: id("clq"),
-    sourceAsset: body.sourceAsset,
+    sourceAsset: sourceCode,
     sourceAmount: source.toFixed(STELLAR_DECIMALS),
-    destAsset: body.destAsset,
+    destAsset: destCode,
     destAmount: destAmount.toFixed(STELLAR_DECIMALS),
     exchangeRate: rate.toFixed(STELLAR_DECIMALS),
     feeAmount: fee.toFixed(STELLAR_DECIMALS),
