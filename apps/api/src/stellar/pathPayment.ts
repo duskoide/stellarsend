@@ -39,12 +39,17 @@ export async function findBestPath(
 }
 
 // Build (unsigned) a strict-receive path payment transaction.
-export async function buildPathPayment(env: Env, params: PathPaymentParams) {
+// `path` = intermediate hops from findBestPath(); [] lets Stellar use a direct offer.
+export async function buildPathPayment(
+  env: Env,
+  params: PathPaymentParams,
+  path: Asset[] = [],
+) {
   const srv = server(env);
   const sourceKp = Keypair.fromSecret(params.sourceSecret);
   const source = await srv.loadAccount(sourceKp.publicKey());
 
-  const tx = new TransactionBuilder(source, {
+  return new TransactionBuilder(source, {
     fee: BASE_FEE,
     networkPassphrase: networkPassphrase(env),
   })
@@ -55,22 +60,57 @@ export async function buildPathPayment(env: Env, params: PathPaymentParams) {
         destination: params.destPublicKey,
         destAsset: params.destAsset,
         destAmount: params.destAmount,
-        // path left empty → Stellar auto-resolves; or pass findBestPath() result.
+        path,
       }),
     )
     .setTimeout(60)
     .build();
-
-  return tx;
 }
 
-// Build, sign, and submit. Returns the tx hash.
+// Map a Horizon path record's hops into Asset instances.
+function hopsToAssets(rec: Horizon.ServerApi.PaymentPathRecord): Asset[] {
+  return (rec.path ?? []).map((p: any) =>
+    p.asset_type === "native" ? Asset.native() : new Asset(p.asset_code, p.asset_issuer),
+  );
+}
+
+export interface SubmitResult {
+  hash: string;
+  /** Actual source amount consumed — may differ from the quote. Persist this. */
+  sourceAmountUsed: string;
+  path: string[];
+}
+
+// Resolve best path → build → sign → submit. Returns hash + what was actually spent.
 export async function submitPathPayment(
   env: Env,
   params: PathPaymentParams,
-): Promise<string> {
-  const tx = await buildPathPayment(env, params);
+): Promise<SubmitResult> {
+  const best = await findBestPath(env, params.sendAsset, params.destAsset, params.destAmount);
+
+  // No path = no liquidity for this pair/amount on the DEX. Fail loudly, don't submit.
+  if (!best) {
+    throw new Error(
+      `No path found: ${params.sendAsset.getCode()} → ${params.destAsset.getCode()} ` +
+        `for ${params.destAmount}. Is the order book seeded?`,
+    );
+  }
+
+  // Guard: refuse if the market moved past our sendMax rather than overspending.
+  if (Number(best.source_amount) > Number(params.sendMax)) {
+    throw new Error(
+      `Path cost ${best.source_amount} exceeds sendMax ${params.sendMax} — re-quote.`,
+    );
+  }
+
+  const hops = hopsToAssets(best);
+  const tx = await buildPathPayment(env, params, hops);
   tx.sign(Keypair.fromSecret(params.sourceSecret));
+
   const res = await server(env).submitTransaction(tx);
-  return res.hash;
+  return {
+    hash: res.hash,
+    sourceAmountUsed: best.source_amount,
+    path: hops.map((a) => (a.isNative() ? "XLM" : a.getCode())),
+  };
 }

@@ -10,6 +10,7 @@ export interface Env {
   DISTRIBUTOR_SECRET: string;
   USDC_ISSUER: string;
   IDR_ISSUER: string;
+  RECEIVING_ANCHOR_PUBKEY: string; // on-chain destination for path payment (SEP-31 shape)
 
   // Queue bindings
   QUEUE_SETTLEMENT: Queue<SettlementJob>;

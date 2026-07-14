@@ -11,6 +11,7 @@ import { API_BASE_PATH } from "@stellarsend/shared/constants";
 import authRoutes from "./routes/auth.js";
 import quoteRoutes from "./routes/quote.js";
 import transferRoutes from "./routes/transfer.js";
+import { spike } from "./routes/_spike.js";
 import beneficiaryRoutes from "./routes/beneficiary.js";
 import payoutRoutes from "./routes/payout.js";
 import anchorRoutes from "./routes/anchor.js";
@@ -35,6 +36,7 @@ app.route(`${API_BASE_PATH}/beneficiaries`, beneficiaryRoutes);
 app.route(`${API_BASE_PATH}/claims`, payoutRoutes);
 app.route(`${API_BASE_PATH}/anchor`, anchorRoutes);
 app.route(`${API_BASE_PATH}/webhooks`, webhookRoutes);
+app.route("/_spike", spike);
 
 export default {
   fetch: app.fetch,

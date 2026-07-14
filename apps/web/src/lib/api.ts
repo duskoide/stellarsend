@@ -17,6 +17,16 @@ import type {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787/api/v1";
 
+// What POST /transfers/:id/submit actually returns (see api/src/routes/transfer.ts).
+export interface SubmitResponse {
+  ok: true;
+  txHash: string;
+  stellarExpert: string;
+  sourceAmountUsed?: string;
+  path?: string[];
+  alreadySubmitted?: boolean;
+}
+
 const TOKEN_KEY = "stellarsend_token";
 
 export function getToken(): string | null {
@@ -74,7 +84,7 @@ export const api = {
       request<Transfer>("/transfers", { method: "POST", body: JSON.stringify(body) }),
     fund: (id: string) => request<{ ok: true }>(`/transfers/${id}/fund`, { method: "POST" }),
     submit: (id: string) =>
-      request<{ ok: true }>(`/transfers/${id}/submit`, { method: "POST" }),
+      request<SubmitResponse>(`/transfers/${id}/submit`, { method: "POST" }),
     get: (id: string) => request<TransferWithEvents>(`/transfers/${id}`),
     list: () => request<Transfer[]>("/transfers"),
   },
