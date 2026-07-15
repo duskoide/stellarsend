@@ -7,7 +7,6 @@
 > (three-direction comparison: https://claude.ai/code/artifact/8df3e889-5ce4-4441-bdde-3d18b29ceec6)
 
 ---
-
 ## 1. Context and goals
 
 The app works end-to-end and every screen exists. The problem is not function, it's that the UI is
@@ -27,8 +26,8 @@ its validation stamp.
 
 **Audience:** hackathon judges first. It must also not contain affordances a judge would catch as fake.
 
-**Non-goal:** this spec does not change Stellar logic, the API surface beyond one validation fix, or the
-mocked-anchor design.
+**Non-goal:** this spec does not change path-payment or signing logic, or the mocked-anchor design. It does
+change the asset set, one API validation, and one shared type — each called out explicitly below.
 
 ---
 
@@ -42,9 +41,12 @@ mocked-anchor design.
 | Display face | **Source Serif 4** | Complements Inter; carries the document register Inter deliberately lacks. |
 | Figure face | **Geist Mono** | Replaces IBM Plex Mono. Grotesk skeleton reads as Inter's sibling; true tabular figures. |
 | Platform | **Mobile-first web app** | User correction. Bottom bar <768px, left rail ≥768px. |
-| Dest currency | **User picks; recipient list filters to match** | See §7. |
-| Mismatch bug | **Reject at transfer creation** | See §7. |
-| Dark mode | **Out of scope for MVP**, documented gap | See §10. |
+| Dest currency | **User picks; recipient list filters to match** | See §9. |
+| Mismatch bug | **Reject at transfer creation** | See §9. |
+| Dark mode | **In scope** — "carbon copy", a second design, not an inversion | See §5. |
+| Asset set | **All SEA currencies + USD** (11) | User decision. See §8. |
+| Currency control | **Searchable picker sheet**, not a chevron button | 11 options is past where a plain list works. See §8. |
+| Fee display | **`0,00001 XLM`**, never `$0.00001` | Units error. See §11. |
 
 ---
 
@@ -137,7 +139,58 @@ is the only place the boldness is spent.
 
 ---
 
-## 5. Layout and responsive structure
+## 5. The night theme — "carbon copy"
+
+**Not an inversion.** Inverting paper produces a glowing white slab, which is the reason the first cut of this
+spec dropped dark mode. Instead the metaphor moves: **the counter after hours.** The slip becomes a carbon copy
+on a slate desk, and the roles swap — **the light theme's paper colour `#E8EAE3` becomes the chalk.** The two
+themes share a colour playing opposite parts, which is what makes them feel like one design rather than two.
+
+```css
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: 168 14% 7%;    /* #0F1413  the desk, after hours */
+    --surface: 165 13% 18%;      /* #273330  the slip — a carbon copy */
+    --foreground: 90 11% 89%;    /* #E4E7E1  the chalk = the light theme's paper */
+    --muted-foreground: 159 8% 64%;  /* #9DABA6 */
+    --border: 163 10% 27%;       /* #3D4B47  decorative only, as in light */
+    --stamp: 5 79% 68%;          /* #EE7A6F  see below */
+    --success: 147 43% 56%;      /* #5FBF8A */
+    --warning: 39 67% 55%;       /* #D9A441 */
+  }
+}
+```
+
+Per the artifact/theming convention, `:root[data-theme="dark"]` and `:root[data-theme="light"]` must redefine
+the same tokens so an explicit toggle beats the media query in both directions. **Style components through the
+tokens only** — never inside the media query — so every component is written once.
+
+**Contrast, measured** against desk `#0F1413` / slip `#273330`:
+
+| Token | Desk | Slip | Verdict |
+|---|---|---|---|
+| chalk `#E4E7E1` | 14.88 | 10.49 | AA text |
+| muted `#9DABA6` | 7.80 | 5.50 | AA text |
+| stamp `#EE7A6F` | 6.77 | 4.77 | AA text |
+| success `#5FBF8A` | 8.24 | 5.81 | AA text |
+| warning `#D9A441` | 8.26 | 5.83 | AA text |
+| rule `#3D4B47` | 2.03 | 1.43 | decorative only — same rule as light |
+
+**Two things the night theme cost, and neither is a token swap:**
+
+1. **The stamp red had to move.** `#B3241F` scores **4.13 on slate** — it fails. It lightens to `#EE7A6F`
+   (4.77): the least change that passes. Anything lighter reads pink rather than official, so this value is not
+   free to nudge.
+2. **The slip needs a border in this theme.** It separates from the desk by only **1.42:1**, and a drop shadow
+   cannot lift an object on a dark ground. `.doc` drops its shadow and gains a `--border` edge. This is the one
+   structural difference between the themes, and it is deliberate.
+
+The light theme keeps its drop shadow and no border. Do not unify these — they are solving the same problem
+with the tools each ground affords.
+
+---
+
+## 6. Layout and responsive structure
 
 One real breakpoint at **768px**, one refinement at **1180px**.
 
@@ -159,29 +212,29 @@ Nothing is hidden on mobile. The custody chain appears on both; it stacks below 
 
 ---
 
-## 6. Screens
+## 7. Screens
 
-### 6.1 Send — the slip
+### 7.1 Send — the slip
 
 Order, top to bottom: masthead → **amount hero** → currency pair → quote slip → recipient → CTA.
 
 - **Amount is the subject of the screen**, not a field. Geist Mono, 33px mobile.
 - **The currency next to the amount is a unit label, not a control** (`--muted-foreground`, no chevron).
-  This is the fix for §7's design bug: the pair below is the only place currencies are chosen.
+  This is the fix for §9's design bug: the pair below is the only place currencies are chosen.
 - **The pair is one control**: `From [VND ▾] ⇄ [IDR ▾] To`. Both sides are real buttons with visible chevrons
   and ink borders. The swap button reverses the corridor in one tap. Caption: `ROUTED VIA XLM · ANY PAIR` —
   this is where the path-payment architecture becomes visible to a judge.
 - **Quote slip**: rate, our fee, network fee, then `They receive` on a dashed rule as the total. Reads as a
   till receipt.
 - **Recipient block** shows the filter it is under: `▾ CAN RECEIVE IDR` in success green.
-- **Empty state is designed** (§7): when no recipient matches the chosen destination, the panel says why in
+- **Empty state is designed** (§9): when no recipient matches the chosen destination, the panel says why in
   plain language, offers "Add a {CUR} recipient", and the CTA disables with `Choose a recipient to continue`.
 
 Quote expiry stays as the code already has it: create → fund → submit remain **one action** behind one button
 (`send/page.tsx:135` — the comment there is correct and the reasoning should survive the redesign). The
 `STEP_LABEL` progression stays.
 
-### 6.2 Status — the record
+### 7.2 Status — the record
 
 Order: masthead → delivered amount + **stamp** → **proof** → chain of custody → recipient-view link.
 
@@ -196,27 +249,94 @@ Chain of custody renders the real `transferEvents` rows against `TRANSFER_STEPS`
 carry the state alongside the colour, so the step is legible without it. **No fabricated steps** — if an event
 has not been written, it renders as pending.
 
-### 6.3 Claim — the receipt
+### 7.3 Claim — the receipt
 
 Centred: amount received (36px mono) → `TERVERIFIKASI` stamp → payout destination → CTA → hash.
 
 The honest disclaimer at `claim/[id]/page.tsx:73` **stays, verbatim in substance**: the anchor payout is
 simulated; the settlement is real. It moves into the ticket line under the CTA. Do not soften it.
 
-Claim gets **no navigation rail** — the recipient is not the account holder in spirit. See §10.
+Claim gets **no navigation rail** — the recipient is not the account holder in spirit. See §13.
 
-### 6.4 Unchanged this round
+### 7.4 Unchanged this round
 
 Landing, login, register, history keep their current structure and inherit the new tokens and type. History gets
 the rail/tab-bar treatment. Their redesign is out of scope.
 
 ---
 
-## 7. Destination currency, and the defect behind it
+## 8. The asset set — 11 currencies
+
+**Decision: every SEA currency plus USD.** `FIAT_ASSET_CODES` goes from 3 to 11:
+
+`BND · KHR · IDR · LAK · MYR · MMK · PHP · SGD · THB · VND` (ASEAN 10) `+ USD`
+
+**Why this was needed — the pitch and the code disagreed.** The spec's story (line 12) is TKI and Indonesian
+students *abroad* sending home; line 495 names **SG/MY/HK → ID** as target corridors; line 478 lists SGD/MYR/USD
+as *future* work. What shipped was IDR/VND/PHP. TKI work in Malaysia, Singapore, Hong Kong, Taiwan, Saudi —
+**not Vietnam.** So the demo showed a corridor the pitch never claimed, for a user who does not exist. A judge
+asking "who sends VND to IDR?" gets no good answer. The expansion makes the demo match the story.
+
+**Cost is linear, not quadratic.** The XLM bridge means each currency needs **one order book against XLM**;
+11 books route all 110 pairs. This is the architecture paying off, and it is worth saying out loud in the pitch.
+
+**Issuers are public keys, not secrets.** `new Asset("VND", env.VND_ISSUER)` takes a G-address. Issuer *secrets*
+are needed only at seed time, never at Worker runtime. So 11 currencies do **not** mean 11 new Worker secrets.
+
+**Required changes:**
+
+1. **Collapse the duplicate definition first.** `FIAT_ASSET_CODES` exists in **both**
+   `packages/shared/src/constants.ts:31` and `apps/api/src/stellar/assets.ts:6`. They agree today; going 3→11
+   means editing both, and two sources of truth drift. `assets.ts` should import from shared. **Do this before
+   the list grows, not after.**
+2. Replace 11 separate `*_ISSUER` env vars with a single issuer map keyed by asset code. `env.ts` gains one var;
+   `assets.ts`'s per-currency functions and switch collapse to a lookup.
+3. `seed-stellar.ts`: issuer keypair, trustline, and XLM order book per currency.
+4. `Beneficiary.currency` (§9) is typed `FiatAssetCode`, so it widens with the set automatically.
+
+**The risk, stated plainly.** `CLAUDE.md` lists multi-currency under *NICE-TO-HAVE, only after the backbone is
+green*, and `StellarSend-Spec.md:439` warns that XLM routing needs sufficient liquidity or you get spread and
+slippage. **Every currency is another thin testnet book, and another way the live demo fails on stage.** The
+deadline is 23 July 2026.
+
+**Therefore: seed all 11, but nominate ONE demo-critical corridor and rehearse only that.** The rehearsal
+checklist (`docs/demo-rehearsal.md`) should name it. Recommended: **MYR → IDR** — the largest real TKI corridor,
+which makes the demo and the story the same thing.
+
+### The picker
+
+At 3 currencies a chevron button was fine. At 11 it is not — **search is mandatory above roughly 7 options** —
+so the pair's currency control opens a **sheet**, not a dropdown:
+
+- Bottom sheet on mobile (80% height); popover anchored to the control on desktop.
+- Search field, focused on open, filtering on both code and name.
+- Grouped: **Southeast Asia**, then **Global** (USD). Sticky group headers.
+- Rows: code (Geist Mono 600) · name (Inter, muted) · check on the current selection.
+- **Every row is a 44px target.** So is the close button.
+- Keyboard: arrow keys move, Enter selects, Escape closes, focus returns to the trigger. **If a custom sheet
+  cannot meet this in the time available, use a native `<select>`** — see §10. A pretty control that traps a
+  keyboard user is worse than a plain one.
+- States: no-results ("No currency matches '{q}'"), and the destination sheet marks currencies the *sender's*
+  side cannot route to, if any.
+
+### "THIN BOOK" — a proposal, conditional
+
+The mockup marks BND/KHR/LAK/MMK with a `THIN BOOK` badge. Rationale: a thin order book means slippage or
+no-path, and the picker warning you beforehand is honest — it also shows a judge you understand what a path
+payment depends on.
+
+**Condition: it must be driven by real liquidity data, or it must be cut.** A hardcoded badge is exactly the
+fake affordance this project has avoided everywhere else, and `CLAUDE.md` is explicit — never fake a result.
+Deriving it means checking order-book depth per asset at quote time or on a schedule. **If that is not built,
+remove the badge.** Do not ship it hardcoded.
+
+---
+
+## 9. Destination currency, and the defect behind it
 
 **The design bug.** The amount hero carried `VND ▾` (chevron) while the pair's From/To were bare text. Source
 currency had two appearances and one affordance; destination had an appearance and none. It read as a readout.
-Fixed per §6.1.
+Fixed per §7.1.
 
 **Why it cannot be automatic.** `Beneficiary` (`packages/shared/src/types.ts:17`) holds `fullName`, `method`,
 `bankName`, `accountNumber` — no currency, no country. `schema.ts:34` matches. There is nothing to derive from.
@@ -248,7 +368,7 @@ The UI work depends on 1–4.
 
 ---
 
-## 8. Accessibility acceptance criteria
+## 10. Accessibility acceptance criteria
 
 Testable, not aspirational. The current `globals.css` already earns most of this; the job is not to regress it.
 
@@ -269,7 +389,40 @@ Testable, not aspirational. The current `globals.css` already earns most of this
 
 ---
 
-## 9. Content and tone
+## 11. The fee — two corrections
+
+**1. The network fee is `0,00001 XLM`, never `$0.00001`.**
+
+`app/page.tsx:5` and `CLAUDE.md:16` both state the network fee as **$0.00001**. Stellar's base fee is 100
+stroops = **0.00001 XLM**. At XLM ≈ $0.10–0.40 that is roughly **$0.000002** — the dollar sign is an XLM
+quantity in disguise. It *overstates* the fee, so it is conservative rather than a lie, but at a **Stellar**
+hackathon every judge knows the base fee. It is a units error in the exact domain the project claims competence
+in, and it is on the landing page.
+
+**Fix:** display `0,00001 XLM`. Optionally add `≈ $0.000002` beneath, but only if an XLM price assumption is
+stated — otherwise a hardcoded dollar figure goes stale and becomes another thing to defend. Update
+`page.tsx:5` and `CLAUDE.md:16` together.
+
+**2. The service fee is 0,005%, not 0,1%.**
+
+`quote.ts:32` sets `FEE_RATE = 0.00005`. On ₫2.500.000 the fee is **₫125**. The first mockup showed ₫2.500 —
+20× too high — while its "they receive" total was arithmetically consistent with ₫125, so the slip contradicted
+itself. Corrected reference values, recomputed from the real rate:
+
+| | |
+|---|---|
+| Send | ₫2.500.000 |
+| Our fee (0,005%) | ₫125 |
+| Net routed | ₫2.499.875 |
+| Rate | 0,6294 |
+| They receive | Rp 1.573.421 |
+
+Fee comes off the top and only the remainder is routed (`quote.ts:58`) — any mockup or test fixture must
+follow that order, not apply the fee to the output.
+
+---
+
+## 12. Content and tone
 
 Concise, low-jargon, action-oriented. Money words, not system words.
 
@@ -284,23 +437,23 @@ Concise, low-jargon, action-oriented. Money words, not system words.
 
 ---
 
-## 10. Open questions and known gaps
+## 13. Open questions and known gaps
 
-1. **Dark mode is out of scope for the MVP** (locked in §2), and that is a real gap rather than an oversight.
-   Paper is paper; a receipt that inverts stops being a receipt. Defensible for a demo; a web app ignoring
-   `prefers-color-scheme` in 2026 gets noticed. Doing it properly means Warkat becomes *a lit desk at night* —
-   genuine design work, not a token flip — so it is a post-MVP design exercise, not an implementation task to
-   be squeezed in. Revisit only once the backbone is green.
+1. **Dark mode is now in scope** (§5) — resolved, not open. Recorded here only to note that the night theme is
+   a **second design, not a filter over the first**, and deserves its own review pass rather than being assumed
+   correct because the light theme was signed off.
 2. **Bottom bar on mobile web needs real-device testing.** Bottom tabs are a native pattern; on mobile web they
    fight the browser's own chrome (iOS Safari's toolbar sits directly under them, and the viewport resizes as it
    hides). It wins for three destinations where Send dominates, but the fallback — a top bar at every breakpoint
    — must be tested in a hand, not in a narrow desktop window.
-3. **The landing page sells a demo that cannot run.** `app/page.tsx` advertises "$0.00001" and the spec's script
-   (`StellarSend-Spec.md` §9) opens with "$100", but `FIAT_ASSET_CODES` is IDR/VND/PHP — **there is no USD to
-   send**. This spec uses VND→IDR throughout. Either the pitch script moves to VND→IDR, or USD is added as a
-   sendable asset with an issuer and seeded liquidity. **This is a pitch decision, not a design one**, but it
-   sets the hero number on every screen. `StellarSend-Spec.md` §9's "SG/MY/HK → ID" corridors have the same
-   problem: no SGD, MYR, or HKD exists.
+3. **The demo script still needs rewriting** — the asset expansion (§8) fixes the code, not the words.
+   `StellarSend-Spec.md:489` opens with *"TKI kirim $100"* and `:491` says *"Sender input $100"*. USD is now
+   sendable, so the script *can* run as written — but §8 recommends demoing **MYR → IDR**, which is the real
+   TKI corridor and the one the story describes. Pick one and make the script, the seed, and
+   `docs/demo-rehearsal.md` agree. **This is a pitch decision, not a design one**, but it sets the hero number
+   on every screen.
+   *Note:* `StellarSend-Spec.md:495` also names **HK** as a target corridor. HKD is not in the SEA set and is
+   not being added — either drop it from the roadmap line or accept that it is roadmap-only.
 4. **`CLAUDE.md` says `fiat → USDC → path payment`; the bridge asset is XLM.** Confirmed intentional. The doc
    is stale and the UI must never print "USDC" — a judge who opens Stellar Expert sees XLM and catches it.
 5. **Claim's auth model.** `claim/[id]/page.tsx:16` redirects to login, so the recipient is an account holder,
@@ -309,7 +462,7 @@ Concise, low-jargon, action-oriented. Money words, not system words.
 
 ---
 
-## 11. QA checklist
+## 14. QA checklist
 
 Executable in code review.
 
@@ -328,3 +481,17 @@ Executable in code review.
 - [ ] No screen renders a hash, rate, or elapsed time that did not come from the API.
 - [ ] `globals.css` retains focus-visible, reduced-motion, and prefers-contrast blocks.
 - [ ] Keyboard: tab through Send end to end, including the pair and swap, without a trap.
+- [ ] Both themes: components are styled through tokens only — no component rule inside a
+      `prefers-color-scheme` block. `data-theme` overrides beat the media query in both directions.
+- [ ] Night theme: `.doc` has a border and no shadow; light theme has a shadow and no border.
+- [ ] Night stamp is `#EE7A6F`, not `#B3241F` — the light value fails on slate (4.13).
+- [ ] `FIAT_ASSET_CODES` is defined **once**; `assets.ts` imports from shared.
+- [ ] Issuer lookup is a map, not 11 env vars or an 11-arm switch.
+- [ ] Picker: search filters code *and* name; arrow/Enter/Escape work; focus returns to the trigger.
+- [ ] Picker rows and the close button are ≥44px.
+- [ ] `THIN BOOK` is either backed by real order-book depth **or absent**. Never hardcoded.
+- [ ] No fee anywhere renders as `$0.00001` — `page.tsx:5` and `CLAUDE.md:16` included.
+- [ ] Fee is computed off the top (`quote.ts:58` order); ₫2.500.000 → fee ₫125 → receive Rp 1.573.421.
+- [ ] The seed produces a working order book for **every** currency it advertises, or the picker does not
+      advertise it.
+- [ ] `docs/demo-rehearsal.md` names the one demo-critical corridor, and it is the one rehearsed.
