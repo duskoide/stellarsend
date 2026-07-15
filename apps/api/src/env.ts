@@ -32,7 +32,6 @@ export interface PayoutJob {
 // Hono context variables (set by middleware).
 export interface Variables {
   userId: string;
-  userRole: "SENDER" | "RECEIVER";
 }
 
 export type AppContext = { Bindings: Env; Variables: Variables };

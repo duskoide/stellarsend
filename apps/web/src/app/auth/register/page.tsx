@@ -24,7 +24,7 @@ export default function RegisterPage() {
     setError(null);
     setLoading(true);
     try {
-      const res = await api.auth.register({ ...form, role: "SENDER" });
+      const res = await api.auth.register({ ...form });
       setToken(res.token);
       router.push("/history");
     } catch (err) {

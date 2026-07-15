@@ -9,7 +9,6 @@ import {
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 import {
-  USER_ROLE,
   TRANSFER_STATUS,
   PAYOUT_METHOD,
 } from "@stellarsend/shared/constants";
@@ -22,7 +21,6 @@ export const users = sqliteTable(
     phone: text("phone").unique(),
     fullName: text("full_name").notNull(),
     passwordHash: text("password_hash").notNull(),
-    role: text("role", { enum: USER_ROLE }).notNull(),
     country: text("country").notNull(),
     stellarPubKey: text("stellar_pub_key"),
     kycStatus: text("kyc_status").notNull().default("none"),

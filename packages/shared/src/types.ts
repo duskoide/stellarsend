@@ -1,19 +1,13 @@
 // Shared domain types — the frozen contract between web (FE) and api (BE).
 // Amounts are strings (7-decimal precision) to avoid float error.
 
-import type {
-  KycStatus,
-  PayoutMethod,
-  TransferStatus,
-  UserRole,
-} from "./constants.js";
+import type { KycStatus, PayoutMethod, TransferStatus } from "./constants.js";
 
 export interface User {
   id: string;
   email: string;
   phone?: string | null;
   fullName: string;
-  role: UserRole;
   country: string; // ISO code e.g. "SG", "ID"
   stellarPubKey?: string | null;
   kycStatus: KycStatus;
@@ -82,7 +76,6 @@ export interface RegisterRequest {
   email: string;
   password: string;
   fullName: string;
-  role: UserRole;
   country: string;
 }
 

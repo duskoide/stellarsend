@@ -62,7 +62,6 @@ function toUser(row: typeof schema.users.$inferSelect): User {
     email: row.email,
     phone: row.phone,
     fullName: row.fullName,
-    role: row.role,
     country: row.country,
     stellarPubKey: row.stellarPubKey,
     kycStatus: row.kycStatus as User["kycStatus"],
@@ -88,7 +87,6 @@ auth.post("/register", async (c) => {
     email: body.email,
     fullName: body.fullName,
     passwordHash: await hashPassword(body.password),
-    role: body.role,
     country: body.country,
   };
   await db.insert(schema.users).values(row);
@@ -99,7 +97,7 @@ auth.post("/register", async (c) => {
     .get();
 
   const user = toUser(created!);
-  const token = await issueToken(c.env.JWT_SECRET, user.id, user.role);
+  const token = await issueToken(c.env.JWT_SECRET, user.id);
   return c.json<AuthResponse>({ token, user }, 201);
 });
 
@@ -115,7 +113,7 @@ auth.post("/login", async (c) => {
     throw unauthorized("Invalid credentials");
   }
   const user = toUser(row);
-  const token = await issueToken(c.env.JWT_SECRET, user.id, user.role);
+  const token = await issueToken(c.env.JWT_SECRET, user.id);
   return c.json<AuthResponse>({ token, user });
 });
 

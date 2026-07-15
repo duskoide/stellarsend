@@ -8,19 +8,13 @@ import { unauthorized } from "../utils/errors.js";
 // hono/jwt's sign/verify expect a payload with a string index signature.
 export interface JwtPayload {
   sub: string; // userId
-  role: "SENDER" | "RECEIVER";
   exp: number;
   [key: string]: unknown;
 }
 
-export async function issueToken(
-  secret: string,
-  userId: string,
-  role: "SENDER" | "RECEIVER",
-): Promise<string> {
+export async function issueToken(secret: string, userId: string): Promise<string> {
   const payload: JwtPayload = {
     sub: userId,
-    role,
     exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7, // 7 days
   };
   return sign(payload, secret, "HS256");
@@ -35,7 +29,6 @@ export const authMiddleware: MiddlewareHandler<AppContext> = async (c, next) => 
   try {
     const payload = (await verify(token, c.env.JWT_SECRET, "HS256")) as unknown as JwtPayload;
     c.set("userId", payload.sub);
-    c.set("userRole", payload.role);
   } catch {
     throw unauthorized("Invalid or expired token");
   }

@@ -1,9 +1,6 @@
 // Shared constants — asset codes, status enums, and app-wide values.
 // SQLite has no ENUM type: these are TS unions, stored as text() in Drizzle.
 
-export const USER_ROLE = ["SENDER", "RECEIVER"] as const;
-export type UserRole = (typeof USER_ROLE)[number];
-
 export const TRANSFER_STATUS = [
   "PENDING",
   "FUNDED",
