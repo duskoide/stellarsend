@@ -23,7 +23,7 @@
 | 2d | Select/create beneficiary: `Ibu Siti — BCA 1234567890` | "Penerima di Indonesia, langsung ke rekening bank." | |
 | 2e | Click **Get quote** | "Rate real-time dari Stellar DEX, bukan hardcoded." | Quote card appears: `206.70 IDR`, fee `0.005 VND`, expires in 60s |
 | 2f | Click **Confirm & send** (quickly, before quote expires) | "Konfirmasi — path payment strict-receive, receiver dijamin dapat jumlah pasti." | Button cycles: Creating → Funding → Submitting → Redirect to status page |
-| 2g | Status page shows **tx hash** + Stellar Expert link | "Ini tx hash-nya. Buka Stellar Expert — settle dalam 5 detik, fee ~$0.00001." | Click link → `stellar.expert/explorer/testnet/tx/...` shows `successful: true`, ledger confirmed |
+| 2g | Status page shows **tx hash** + Stellar Expert link | "Ini tx hash-nya. Buka Stellar Expert — settle dalam 5 detik, fee ~0.00001 XLM." | Click link → `stellar.expert/explorer/testnet/tx/...` shows `successful: true`, ledger confirmed |
 | 2h | Click **Open recipient's view →** | "Switch ke sisi penerima." | Claim page opens |
 | 2i | Wait until status = `SETTLED`, then click **Claim to bank account** | "Receiver klaim — anchor (simulated) proses payout." | Status becomes `PAYOUT_PENDING` then `COMPLETED` |
 | 2j | Show **event timeline** (7 events: PENDING → FUNDED → SUBMITTED → SETTLED → PAYOUT_PENDING → PAYOUT_PENDING → COMPLETED) | "Setiap step tercatat — audit trail lengkap." | |

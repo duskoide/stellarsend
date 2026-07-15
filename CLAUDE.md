@@ -13,7 +13,7 @@ fiat → USDC → **Stellar path payment** → IDR token → local anchor payout
 ## The one thing that matters
 
 The demo must produce a **real, verifiable testnet transaction hash** that opens on Stellar Expert.
-Fee ≈ $0.00001, settle in ~5s, versus Western Union's 5–10% and 2 days. That contrast *is* the pitch.
+Fee ≈ 0.00001 XLM (~$0.000002), settle in ~5s, versus Western Union's 5–10% and 2 days. That contrast *is* the pitch.
 
 Any work that does not move toward a verifiable on-chain tx hash is a distraction until the
 happy path is green.

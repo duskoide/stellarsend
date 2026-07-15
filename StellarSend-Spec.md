@@ -13,7 +13,7 @@
 
 **Problem:** Remittance konvensional (Western Union, bank) mahal (5–10% fee), lambat (1–3 hari), dan ribet. TKI kehilangan porsi signifikan dari kiriman mereka.
 
-**Solusi:** Sender bayar dalam mata uang lokal / stablecoin → dikonversi & dikirim via Stellar (settle dalam hitungan detik, fee ~$0.00001) → receiver di Indonesia klaim sebagai IDR ke rekening bank / e-wallet lewat anchor lokal.
+**Solusi:** Sender bayar dalam mata uang lokal / stablecoin → dikonversi & dikirim via Stellar (settle dalam hitungan detik, fee ~0.00001 XLM) → receiver di Indonesia klaim sebagai IDR ke rekening bank / e-wallet lewat anchor lokal.
 
 **Kenapa cocok untuk Track 1:** Menghubungkan real-world asset (fiat IDR & foreign fiat) ke infrastruktur blockchain lewat integrasi anchor lokal — inti dari "Real World Access".
 

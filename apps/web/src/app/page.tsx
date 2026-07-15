@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 const STATS = [
-  { label: "Network fee", value: "$0.00001", note: "vs. 5–10% wire fees" },
+  { label: "Network fee", value: "0.00001 XLM", note: "vs. 5–10% wire fees" },
   { label: "Settlement time", value: "~5 seconds", note: "vs. 1–2 days" },
   { label: "Proof", value: "On-chain", note: "verify any transfer yourself" },
 ];

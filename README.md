@@ -17,7 +17,7 @@ StellarSend replaces the traditional remittance rail with Stellar's Path Payment
 
 | | Western Union | StellarSend |
 |---|---|---|
-| **Fee** | 5–10% | ~$0.00001 |
+| **Fee** | 5–10% | ~0.00001 XLM (~$0.000002) |
 | **Settlement** | 2–5 days | ~5 seconds |
 | **Transparency** | Opaque | Fully on-chain, verifiable |
 
