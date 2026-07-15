@@ -1,28 +1,29 @@
 import type { Metadata } from "next";
-import { Open_Sans, Poppins, IBM_Plex_Mono } from "next/font/google";
+import { Inter, Source_Serif_4 } from "next/font/google";
+import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { Providers } from "./providers";
 import NavBar from "@/components/NavBar";
 
 export const runtime = "edge";
 
-// Corporate design system type scale (.agents/skills/design-system/SKILL.md):
-// primary=Open Sans, display=Poppins, mono=IBM Plex Mono.
-const openSans = Open_Sans({
+// Warkat type system — see docs/specs/2026-07-15-warkat-frontend-design.md §3.
+// Inter carries body/UI. Source Serif 4 brings the document register Inter
+// deliberately lacks. Geist Mono strikes the figures — grotesk-structured, so
+// it reads as Inter's sibling rather than a code font that wandered in.
+//
+// Geist Mono comes from Vercel's `geist` package, not next/font/google: it is
+// absent from Next 14's bundled font list. It exposes --font-geist-mono, a name
+// it does not let us change, so tailwind.config.ts points font-mono at that.
+const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
   display: "swap",
 });
-const poppins = Poppins({
+const sourceSerif = Source_Serif_4({
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
+  weight: ["400", "600", "700"],
   variable: "--font-display",
-  display: "swap",
-});
-const plexMono = IBM_Plex_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-mono",
   display: "swap",
 });
 
@@ -37,7 +38,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${openSans.variable} ${poppins.variable} ${plexMono.variable}`}>
+    <html lang="en" className={`${inter.variable} ${sourceSerif.variable} ${GeistMono.variable}`}>
       <body>
         <NavBar />
         <Providers>{children}</Providers>

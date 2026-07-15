@@ -42,7 +42,11 @@ const config: Config = {
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
         display: ["var(--font-display)", "system-ui", "sans-serif"],
-        mono: ["var(--font-mono)", "ui-monospace", "monospace"],
+        // Geist Mono ships its own CSS variable name from the `geist` package
+        // and does not allow renaming it, so point at --font-geist-mono rather
+        // than aliasing inside globals.css (whose :root block is parsed by
+        // tests/tokens.test.ts and must contain only theme tokens).
+        mono: ["var(--font-geist-mono)", "ui-monospace", "monospace"],
       },
       borderRadius: {
         lg: "var(--radius)",
