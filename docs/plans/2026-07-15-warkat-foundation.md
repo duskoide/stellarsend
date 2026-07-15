@@ -37,7 +37,7 @@ Every task's requirements implicitly include these. Copied from the spec.
 | `apps/web/src/app/globals.css` | **Modify.** Token values only; structure preserved. Gains a dark block. |
 | `apps/web/tailwind.config.ts` | **Modify.** Add `stamp` colour. |
 | `apps/web/src/app/layout.tsx:2,9-27,40` | **Modify.** Font imports and the `<html>` variable list. |
-| `apps/web/src/components/ui/{button,card,alert}.tsx` | **Modify.** Radius + variant mapping. |
+| `apps/web/src/components/ui/{button,card,alert,input}.tsx` | **Modify.** Radius + variant mapping. `input` is a CONTROL: its border must be `--foreground`. |
 | `apps/web/src/components/AppShell.tsx` | **Create.** Replaces `NavBar`. Bottom bar <768px, left rail ≥768px. |
 | `apps/web/src/components/ThemeToggle.tsx` | **Create.** Three-state system/light/dark; stamps `data-theme`. |
 | `apps/web/src/components/QuoteCard.tsx` | **Delete.** Task 8 replaces it with `Slip`. |
@@ -528,7 +528,7 @@ rather than aliasing in globals.css, whose :root block the token tests parse."
 ## Task 3: UI primitives
 
 **Files:**
-- Modify: `apps/web/src/components/ui/button.tsx:22-33`, `apps/web/src/components/ui/card.tsx:5-8`, `apps/web/src/components/ui/alert.tsx:3-9`
+- Modify: `apps/web/src/components/ui/button.tsx:22-33`, `apps/web/src/components/ui/card.tsx:5-8`, `apps/web/src/components/ui/alert.tsx:3-9`, `apps/web/src/components/ui/input.tsx:19`
 
 **Interfaces:**
 - Consumes: tokens from Task 1.
