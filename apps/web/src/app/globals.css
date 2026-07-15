@@ -50,10 +50,11 @@
      glowing slab. The counter after hours; the light theme's PAPER becomes the
      chalk. §5.
      These three blocks must agree. The media query is the no-JS fallback; the
-     attribute blocks are what the toggle stamps. The explicit "light" attribute
-     selector (below, data-theme=light) has higher specificity (0,2,0) than
-     `:root` inside the media query (0,1,0), which is exactly why an explicit
-     "light" choice survives a dark OS. */
+     attribute blocks are what the toggle stamps. The explicit `:root[data-theme="light"]`
+     selector (below) has higher specificity (0,2,0) than `:root` inside the
+     media query (0,1,0), which is exactly why an explicit "light" choice
+     survives a dark OS — tests/tokens.test.ts strips comments before it looks
+     for that selector, so naming it here in prose is safe. */
   @media (prefers-color-scheme: dark) {
     :root {
       --background: 168 14% 7%;           /* #0F1413  the desk */

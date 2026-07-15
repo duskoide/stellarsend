@@ -2,7 +2,20 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const css = readFileSync(join(__dirname, "../src/app/globals.css"), "utf8");
+// Strip CSS comments before any indexOf-based lookup. Without this, a comment
+// that merely *mentions* a selector (e.g. explaining why the light attribute
+// block exists) can be matched instead of the real rule — see blockAfter.
+const css = readFileSync(join(__dirname, "../src/app/globals.css"), "utf8").replace(
+  /\/\*[\s\S]*?\*\//g,
+  "",
+);
+
+/** Read a token, failing loudly if globals.css never declares it. */
+function must(tokens: Record<string, string>, name: string): string {
+  const value = tokens[name];
+  if (value === undefined) throw new Error(`--${name} is not declared in this theme block`);
+  return value;
+}
 
 /** Pull `--name: h s% l%;` declarations out of the first {...} after `from`. */
 function tokensAfter(from: number): Record<string, string> {
@@ -15,7 +28,8 @@ function tokensAfter(from: number): Record<string, string> {
   }
   const out: Record<string, string> = {};
   for (const m of css.slice(open + 1, end).matchAll(/--([\w-]+):\s*([^;]+);/g)) {
-    out[m[1]] = m[2].trim();
+    // Both groups are mandatory in the pattern (no `?`), so a match always has them.
+    out[m[1]!] = m[2]!.trim();
   }
   return out;
 }
@@ -36,8 +50,9 @@ const darkAttr = blockAfter(':root[data-theme="dark"]');
 const lightAttr = blockAfter(':root[data-theme="light"]');
 
 function hslToRgb(css: string): [number, number, number] {
+  // Fixed "h s% l%" shape (see the doc comment above) — split always yields 3 parts.
   const [hs, ss, ls] = css.split(/\s+/);
-  const h = parseFloat(hs), s = parseFloat(ss) / 100, l = parseFloat(ls) / 100;
+  const h = parseFloat(hs!), s = parseFloat(ss!) / 100, l = parseFloat(ls!) / 100;
   const c = (1 - Math.abs(2 * l - 1)) * s;
   const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
   const m = l - c / 2;
@@ -60,8 +75,9 @@ function luminance(rgb: [number, number, number]): number {
 }
 
 function contrast(a: string, b: string): number {
+  // A 2-element literal sorted in place is still a 2-element array.
   const [hi, lo] = [luminance(hslToRgb(a)), luminance(hslToRgb(b))].sort((x, y) => y - x);
-  return (hi + 0.05) / (lo + 0.05);
+  return (hi! + 0.05) / (lo! + 0.05);
 }
 
 // Every pair that actually renders as text on a ground somewhere in the app.
@@ -91,9 +107,7 @@ describe.each([
   ["light (attr)", lightAttr],
 ])("%s", (_name, tok) => {
   it.each(PAIRS)("%s on %s meets WCAG AA (4.5:1)", (fg, bg) => {
-    expect(tok[fg], `--${fg} missing`).toBeDefined();
-    expect(tok[bg], `--${bg} missing`).toBeDefined();
-    expect(contrast(tok[fg], tok[bg])).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(must(tok, fg), must(tok, bg))).toBeGreaterThanOrEqual(4.5);
   });
 });
 
@@ -130,11 +144,11 @@ describe("the slip shadow is a token, not a dark: variant", () => {
   // and means Tailwind needs no darkMode config at all.
   it("is defined in every theme block", () => {
     for (const [name, tok] of [["light", light], ["dark media", darkMedia], ["dark attr", darkAttr], ["light attr", lightAttr]] as const) {
-      expect(tok["slip-shadow"], `--slip-shadow missing from ${name}`).toBeDefined();
+      must(tok, "slip-shadow");
     }
   });
 
   it("is none in dark — a shadow cannot lift an object on a dark ground", () => {
-    expect(darkMedia["slip-shadow"]).toBe("none");
+    expect(must(darkMedia, "slip-shadow")).toBe("none");
   });
 });
