@@ -19,19 +19,35 @@ export type PayoutMethod = (typeof PAYOUT_METHOD)[number];
 export const KYC_STATUS = ["none", "pending", "verified"] as const;
 export type KycStatus = (typeof KYC_STATUS)[number];
 
-// Fiat asset codes supported by the current XLM-bridge backend.
+// Fiat asset codes supported by the XLM-bridge backend.
 // Issuers come from Worker secrets (server-side).
 export const ASSET_CODE = {
+  BND: "BND",
+  KHR: "KHR",
   IDR: "IDR",
-  VND: "VND",
+  LAK: "LAK",
+  MYR: "MYR",
+  MMK: "MMK",
   PHP: "PHP",
+  SGD: "SGD",
+  THB: "THB",
+  VND: "VND",
+  USD: "USD",
   XLM: "XLM",
 } as const;
 
 export const FIAT_ASSET_CODES = [
+  ASSET_CODE.BND,
+  ASSET_CODE.KHR,
   ASSET_CODE.IDR,
-  ASSET_CODE.VND,
+  ASSET_CODE.LAK,
+  ASSET_CODE.MYR,
+  ASSET_CODE.MMK,
   ASSET_CODE.PHP,
+  ASSET_CODE.SGD,
+  ASSET_CODE.THB,
+  ASSET_CODE.VND,
+  ASSET_CODE.USD,
 ] as const;
 export type FiatAssetCode = (typeof FIAT_ASSET_CODES)[number];
 

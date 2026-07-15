@@ -28,7 +28,7 @@ const server = new Horizon.Server(
 );
 const NET = Networks.TESTNET;
 
-type LocalCode = "IDR" | "VND" | "PHP";
+type LocalCode = "BND" | "KHR" | "IDR" | "LAK" | "MYR" | "MMK" | "PHP" | "SGD" | "THB" | "VND" | "USD";
 
 type Market = {
   code: LocalCode;
@@ -88,9 +88,17 @@ async function main() {
 
   // Issuer accounts stay separate from the distributor and market maker.
   const issuers: Record<LocalCode, Keypair> = {
+    BND: Keypair.random(),
+    KHR: Keypair.random(),
     IDR: Keypair.random(),
-    VND: Keypair.random(),
+    LAK: Keypair.random(),
+    MYR: Keypair.random(),
+    MMK: Keypair.random(),
     PHP: Keypair.random(),
+    SGD: Keypair.random(),
+    THB: Keypair.random(),
+    VND: Keypair.random(),
+    USD: Keypair.random(),
   };
 
   // Reuse the configured distributor when available so the Worker can submit
@@ -108,12 +116,76 @@ async function main() {
 
   const markets: Market[] = [
     {
+      code: "BND",
+      issuer: issuers.BND,
+      asset: new Asset("BND", issuers.BND.publicKey()),
+      localPerXlm: "0.15",
+      distributorAmount: "100000000",
+      marketMakerAmount: "100000000",
+    },
+    {
+      code: "KHR",
+      issuer: issuers.KHR,
+      asset: new Asset("KHR", issuers.KHR.publicKey()),
+      localPerXlm: "800",
+      distributorAmount: "1000000000",
+      marketMakerAmount: "10000000000",
+    },
+    {
       code: "IDR",
       issuer: issuers.IDR,
       asset: new Asset("IDR", issuers.IDR.publicKey()),
       localPerXlm: "16000",
       distributorAmount: "1000000000",
       marketMakerAmount: "100000000000",
+    },
+    {
+      code: "LAK",
+      issuer: issuers.LAK,
+      asset: new Asset("LAK", issuers.LAK.publicKey()),
+      localPerXlm: "4000",
+      distributorAmount: "1000000000",
+      marketMakerAmount: "50000000000",
+    },
+    {
+      code: "MYR",
+      issuer: issuers.MYR,
+      asset: new Asset("MYR", issuers.MYR.publicKey()),
+      localPerXlm: "0.9",
+      distributorAmount: "100000000",
+      marketMakerAmount: "500000000",
+    },
+    {
+      code: "MMK",
+      issuer: issuers.MMK,
+      asset: new Asset("MMK", issuers.MMK.publicKey()),
+      localPerXlm: "400",
+      distributorAmount: "1000000000",
+      marketMakerAmount: "5000000000",
+    },
+    {
+      code: "PHP",
+      issuer: issuers.PHP,
+      asset: new Asset("PHP", issuers.PHP.publicKey()),
+      localPerXlm: "28",
+      distributorAmount: "1000000000",
+      marketMakerAmount: "1000000000",
+    },
+    {
+      code: "SGD",
+      issuer: issuers.SGD,
+      asset: new Asset("SGD", issuers.SGD.publicKey()),
+      localPerXlm: "0.27",
+      distributorAmount: "100000000",
+      marketMakerAmount: "100000000",
+    },
+    {
+      code: "THB",
+      issuer: issuers.THB,
+      asset: new Asset("THB", issuers.THB.publicKey()),
+      localPerXlm: "7",
+      distributorAmount: "1000000000",
+      marketMakerAmount: "2000000000",
     },
     {
       code: "VND",
@@ -124,21 +196,29 @@ async function main() {
       marketMakerAmount: "100000000000",
     },
     {
-      code: "PHP",
-      issuer: issuers.PHP,
-      asset: new Asset("PHP", issuers.PHP.publicKey()),
-      localPerXlm: "28",
-      distributorAmount: "1000000000",
-      marketMakerAmount: "1000000000",
+      code: "USD",
+      issuer: issuers.USD,
+      asset: new Asset("USD", issuers.USD.publicKey()),
+      localPerXlm: "0.20",
+      distributorAmount: "100000000",
+      marketMakerAmount: "100000000",
     },
   ];
   const XLM = Asset.native();
 
   console.log("1. Funding accounts via friendbot...");
   const funding: Array<[Keypair, string]> = [
+    [issuers.BND, "bndIssuer"],
+    [issuers.KHR, "khrIssuer"],
     [issuers.IDR, "idrIssuer"],
-    [issuers.VND, "vndIssuer"],
+    [issuers.LAK, "lakIssuer"],
+    [issuers.MYR, "myrIssuer"],
+    [issuers.MMK, "mmkIssuer"],
     [issuers.PHP, "phpIssuer"],
+    [issuers.SGD, "sgdIssuer"],
+    [issuers.THB, "thbIssuer"],
+    [issuers.VND, "vndIssuer"],
+    [issuers.USD, "usdIssuer"],
     [distributor, "distributor"],
     [anchor, "receivingAnchor"],
     [mm, "marketMaker"],
@@ -249,9 +329,17 @@ async function main() {
   // Print keys BEFORE verification — a failed verify must never lose keypairs.
   console.log("\n" + "=".repeat(62));
   console.log("Copy into apps/api/.dev.vars (and use wrangler secrets in prod):\n");
+  console.log(`BND_ISSUER=${issuers.BND.publicKey()}`);
+  console.log(`KHR_ISSUER=${issuers.KHR.publicKey()}`);
   console.log(`IDR_ISSUER=${issuers.IDR.publicKey()}`);
-  console.log(`VND_ISSUER=${issuers.VND.publicKey()}`);
+  console.log(`LAK_ISSUER=${issuers.LAK.publicKey()}`);
+  console.log(`MYR_ISSUER=${issuers.MYR.publicKey()}`);
+  console.log(`MMK_ISSUER=${issuers.MMK.publicKey()}`);
   console.log(`PHP_ISSUER=${issuers.PHP.publicKey()}`);
+  console.log(`SGD_ISSUER=${issuers.SGD.publicKey()}`);
+  console.log(`THB_ISSUER=${issuers.THB.publicKey()}`);
+  console.log(`VND_ISSUER=${issuers.VND.publicKey()}`);
+  console.log(`USD_ISSUER=${issuers.USD.publicKey()}`);
   console.log(`DISTRIBUTOR_SECRET=${distributor.secret()}`);
   console.log(`RECEIVING_ANCHOR_PUBKEY=${anchor.publicKey()}`);
   console.log("\n# keep safe (needed to re-seed offers later):");

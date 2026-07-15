@@ -8,21 +8,29 @@ export function formatAmount(amount: string, decimals = 2): string {
   });
 }
 
+// Currencies that display with 0 decimals (high-denomination units).
+const ZERO_DECIMAL_CURRENCIES = new Set(["IDR", "VND", "KHR", "LAK", "MMK"]);
+
+function currencyDecimals(currency: string): number {
+  return ZERO_DECIMAL_CURRENCIES.has(currency) ? 0 : 2;
+}
+
 export function formatCurrency(
   amount: string,
   currency: string,
   locale = "en-US",
 ): string {
   const n = Number(amount);
+  const decimals = currencyDecimals(currency);
   try {
     return new Intl.NumberFormat(locale, {
       style: "currency",
       currency,
-      maximumFractionDigits: currency === "IDR" ? 0 : 2,
+      maximumFractionDigits: decimals,
     }).format(n);
   } catch {
-    // Fallback for non-ISO codes (e.g. demo "IDR-token" style assets).
-    return `${formatAmount(amount, currency === "IDR" ? 0 : 2)} ${currency}`;
+    // Fallback for non-ISO codes (e.g. demo token assets).
+    return `${formatAmount(amount, decimals)} ${currency}`;
   }
 }
 

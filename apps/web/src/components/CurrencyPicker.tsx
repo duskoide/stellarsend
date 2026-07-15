@@ -5,9 +5,17 @@ import clsx from "clsx";
 import type { FiatAssetCode } from "@stellarsend/shared/constants";
 
 export const CURRENCY_NAMES: Record<string, string> = {
+  BND: "Brunei Dollar",
+  KHR: "Cambodian Riel",
   IDR: "Indonesian Rupiah",
-  VND: "Vietnamese Dong",
+  LAK: "Lao Kip",
+  MYR: "Malaysian Ringgit",
+  MMK: "Myanmar Kyat",
   PHP: "Philippine Peso",
+  SGD: "Singapore Dollar",
+  THB: "Thai Baht",
+  VND: "Vietnamese Dong",
+  USD: "US Dollar",
 };
 
 /** Below this, search is noise rather than help. */

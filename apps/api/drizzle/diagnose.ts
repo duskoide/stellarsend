@@ -3,16 +3,24 @@
 import "dotenv/config";
 import { Horizon, Asset } from "@stellar/stellar-sdk";
 
-type LocalCode = "IDR" | "VND" | "PHP";
+type LocalCode = "BND" | "KHR" | "IDR" | "LAK" | "MYR" | "MMK" | "PHP" | "SGD" | "THB" | "VND" | "USD";
 
 const server = new Horizon.Server(
   process.env.HORIZON_URL ?? "https://horizon-testnet.stellar.org",
 );
 
 const issuerByCode: Record<LocalCode, string | undefined> = {
+  BND: process.env.BND_ISSUER,
+  KHR: process.env.KHR_ISSUER,
   IDR: process.env.IDR_ISSUER,
-  VND: process.env.VND_ISSUER,
+  LAK: process.env.LAK_ISSUER,
+  MYR: process.env.MYR_ISSUER,
+  MMK: process.env.MMK_ISSUER,
   PHP: process.env.PHP_ISSUER,
+  SGD: process.env.SGD_ISSUER,
+  THB: process.env.THB_ISSUER,
+  VND: process.env.VND_ISSUER,
+  USD: process.env.USD_ISSUER,
 };
 
 const missingIssuers = Object.entries(issuerByCode)
@@ -25,9 +33,17 @@ if (missingIssuers.length > 0) {
 }
 
 const assets: Record<LocalCode, Asset> = {
+  BND: new Asset("BND", issuerByCode.BND!),
+  KHR: new Asset("KHR", issuerByCode.KHR!),
   IDR: new Asset("IDR", issuerByCode.IDR!),
-  VND: new Asset("VND", issuerByCode.VND!),
+  LAK: new Asset("LAK", issuerByCode.LAK!),
+  MYR: new Asset("MYR", issuerByCode.MYR!),
+  MMK: new Asset("MMK", issuerByCode.MMK!),
   PHP: new Asset("PHP", issuerByCode.PHP!),
+  SGD: new Asset("SGD", issuerByCode.SGD!),
+  THB: new Asset("THB", issuerByCode.THB!),
+  VND: new Asset("VND", issuerByCode.VND!),
+  USD: new Asset("USD", issuerByCode.USD!),
 };
 const XLM = Asset.native();
 

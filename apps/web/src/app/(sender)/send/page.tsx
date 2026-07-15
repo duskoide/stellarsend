@@ -34,7 +34,7 @@ export default function SendPage() {
   const router = useRouter();
   const recipientId = useId();
   const [amount, setAmount] = useState("100");
-  const [sourceAsset, setSourceAsset] = useState<FiatAssetCode>(ASSET_CODE.VND);
+  const [sourceAsset, setSourceAsset] = useState<FiatAssetCode>(ASSET_CODE.MYR);
   const [destAsset, setDestAsset] = useState<FiatAssetCode>(ASSET_CODE.IDR);
   const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
   const [beneficiaryId, setBeneficiaryId] = useState("");

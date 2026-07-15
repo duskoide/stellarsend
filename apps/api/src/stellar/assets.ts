@@ -1,10 +1,10 @@
 // Asset definitions. Issuers come from env (server-side only).
 
 import { Asset } from "@stellar/stellar-sdk";
+import { FIAT_ASSET_CODES, type FiatAssetCode } from "@stellarsend/shared/constants";
 import type { Env } from "../env.js";
 
-export const FIAT_ASSET_CODES = ["IDR", "VND", "PHP"] as const;
-export type FiatAssetCode = (typeof FIAT_ASSET_CODES)[number];
+export { FIAT_ASSET_CODES, type FiatAssetCode };
 
 export function normalizeAssetCode(code: unknown): FiatAssetCode {
   if (typeof code !== "string") {
@@ -21,33 +21,35 @@ export function normalizeAssetCode(code: unknown): FiatAssetCode {
   return normalized as FiatAssetCode;
 }
 
-export function idr(env: Env): Asset {
-  return new Asset("IDR", env.IDR_ISSUER);
-}
-
-export function vnd(env: Env): Asset {
-  return new Asset("VND", env.VND_ISSUER);
-}
-
-export function php(env: Env): Asset {
-  return new Asset("PHP", env.PHP_ISSUER);
-}
-
 // Native XLM is the bridge asset. It has no issuer or trustline.
 export function xlm(): Asset {
   return Asset.native();
 }
 
+const ISSUER_ENV_KEY: Record<FiatAssetCode, keyof Env> = {
+  BND: "BND_ISSUER",
+  KHR: "KHR_ISSUER",
+  IDR: "IDR_ISSUER",
+  LAK: "LAK_ISSUER",
+  MYR: "MYR_ISSUER",
+  MMK: "MMK_ISSUER",
+  PHP: "PHP_ISSUER",
+  SGD: "SGD_ISSUER",
+  THB: "THB_ISSUER",
+  VND: "VND_ISSUER",
+  USD: "USD_ISSUER",
+};
+
 // Resolve a supported fiat asset code to an Asset instance.
 // XLM is intentionally not accepted from the public quote/transfer API: it is
 // the enforced intermediary asset for this phase of the backend.
 export function assetFromCode(code: string, env: Env): Asset {
-  switch (normalizeAssetCode(code)) {
-    case "IDR":
-      return idr(env);
-    case "VND":
-      return vnd(env);
-    case "PHP":
-      return php(env);
+  const normalized = normalizeAssetCode(code);
+  const issuer = env[ISSUER_ENV_KEY[normalized]] as string;
+  if (!issuer || !issuer.startsWith("G")) {
+    throw new Error(
+      `Missing or invalid issuer for ${normalized}: ${ISSUER_ENV_KEY[normalized]}`,
+    );
   }
+  return new Asset(normalized, issuer);
 }
