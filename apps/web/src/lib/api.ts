@@ -106,9 +106,13 @@ export const api = {
   },
   claims: {
     get: (id: string) =>
-      request<{ id: string; destAsset: string; destAmount: string; status: string }>(
-        `/claims/${id}`,
-      ),
+      request<{
+        id: string;
+        destAsset: string;
+        destAmount: string;
+        status: string;
+        stellarTxHash?: string | null;
+      }>(`/claims/${id}`),
     payout: (id: string, body: PayoutRequest) =>
       request<{ ok: true }>(`/claims/${id}/payout`, {
         method: "POST",

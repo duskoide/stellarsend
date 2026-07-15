@@ -7,7 +7,7 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { api, getToken } from "@/lib/api";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatTxHash, stellarExpertTxUrl } from "@/lib/format";
 export default function ClaimPage({ params }: { params: { id: string } }) {
   const router = useRouter();
 
@@ -70,11 +70,23 @@ export default function ClaimPage({ params }: { params: { id: string } }) {
 
         {completed && (
           <Alert variant="success">
-            <p className="font-semibold">✓ Disbursed to your account</p>
+            <p className="font-semibold">✓ On-chain settlement verified</p>
             <p className="mt-0.5 text-xs opacity-90">
-              Sent from abroad and delivered in seconds, for a fraction of a cent in network fees.
+              The anchor payout step is simulated in this demo. In production a licensed anchor
+              pays out fiat after receiving the on-chain transfer.
             </p>
           </Alert>
+        )}
+
+        {completed && claim.stellarTxHash && (
+          <a
+            href={stellarExpertTxUrl(claim.stellarTxHash)}
+            target="_blank"
+            rel="noreferrer"
+            className="block break-all rounded-md bg-muted px-3 py-2 font-mono text-xs text-primary underline"
+          >
+            {formatTxHash(claim.stellarTxHash, 8)}
+          </a>
         )}
 
         {failed && <Alert variant="danger">This transfer failed. No funds were disbursed.</Alert>}
@@ -89,7 +101,7 @@ export default function ClaimPage({ params }: { params: { id: string } }) {
           </Alert>
         )}
 
-        {inFlight && <Alert variant="neutral">Payout in progress — disbursing to your account…</Alert>}
+        {inFlight && <Alert variant="neutral">Payout in progress — simulating anchor disbursement…</Alert>}
 
         {claimable && (
           <>

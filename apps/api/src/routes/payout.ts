@@ -32,6 +32,7 @@ payout.get("/:id", async (c) => {
     destAsset: row.destAsset,
     destAmount: row.destAmount,
     status: row.status,
+    stellarTxHash: row.stellarTxHash,
   });
 });
 
