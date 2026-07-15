@@ -16,7 +16,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           "flex min-h-11 w-full rounded-md border bg-surface px-3 py-2 text-sm text-foreground",
           "placeholder:text-muted-foreground",
           "disabled:opacity-50 disabled:pointer-events-none",
-          error ? "border-danger" : "border-border",
+          // Control borders must be --foreground (12.09:1 light / 10.49:1 night) to pass
+          // WCAG 1.4.11's 3:1 contrast ratio. --border is 1.35:1, suitable only for grouping.
+          error ? "border-danger" : "border-foreground",
           className,
         )}
         {...props}
