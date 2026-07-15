@@ -69,10 +69,18 @@ function toUser(row: typeof schema.users.$inferSelect): User {
   };
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 auth.post("/register", async (c) => {
   const body = await c.req.json<RegisterRequest>();
   if (!body.email || !body.password || !body.fullName) {
     throw badRequest("email, password, and fullName are required");
+  }
+  if (!EMAIL_RE.test(body.email)) {
+    throw badRequest("Invalid email address");
+  }
+  if (body.password.length < 8) {
+    throw badRequest("Password must be at least 8 characters");
   }
   const db = createDb(c.env);
   const existing = await db

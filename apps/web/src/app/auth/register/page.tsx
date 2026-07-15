@@ -17,11 +17,26 @@ export default function RegisterPage() {
     country: "",
   });
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string; fullName?: string; country?: string }>({});
   const [loading, setLoading] = useState(false);
+
+  function validate(): string | null {
+    const errs: { email?: string; password?: string; fullName?: string; country?: string } = {};
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRe.test(form.email.trim())) errs.email = "Enter a valid email address.";
+    if (form.password.length < 8) errs.password = "Password must be at least 8 characters.";
+    if (!form.fullName.trim()) errs.fullName = "Full name is required.";
+    if (!form.country.trim()) errs.country = "Country is required.";
+    setFieldErrors(errs);
+    const first = Object.values(errs)[0];
+    return first ?? null;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    const firstErr = validate();
+    if (firstErr) return;
     setLoading(true);
     try {
       const res = await api.auth.register({ ...form });
@@ -46,11 +61,12 @@ export default function RegisterPage() {
             <Input
               id="reg-name"
               autoComplete="name"
-              error={!!error}
+              error={!!fieldErrors.fullName}
               value={form.fullName}
               onChange={(e) => setForm({ ...form, fullName: e.target.value })}
               required
             />
+            {fieldErrors.fullName && <p className="text-xs text-danger">{fieldErrors.fullName}</p>}
           </div>
           <div className="space-y-1.5">
             <label htmlFor="reg-email" className="text-sm font-medium text-muted-foreground">
@@ -60,11 +76,12 @@ export default function RegisterPage() {
               id="reg-email"
               type="email"
               autoComplete="email"
-              error={!!error}
+              error={!!fieldErrors.email}
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               required
             />
+            {fieldErrors.email && <p className="text-xs text-danger">{fieldErrors.email}</p>}
           </div>
           <div className="space-y-1.5">
             <label htmlFor="reg-password" className="text-sm font-medium text-muted-foreground">
@@ -74,11 +91,12 @@ export default function RegisterPage() {
               id="reg-password"
               type="password"
               autoComplete="new-password"
-              error={!!error}
+              error={!!fieldErrors.password}
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               required
             />
+            {fieldErrors.password && <p className="text-xs text-danger">{fieldErrors.password}</p>}
           </div>
           <div className="space-y-1.5">
             <label htmlFor="reg-country" className="text-sm font-medium text-muted-foreground">
@@ -87,11 +105,12 @@ export default function RegisterPage() {
             <Input
               id="reg-country"
               autoComplete="country"
-              error={!!error}
+              error={!!fieldErrors.country}
               value={form.country}
               onChange={(e) => setForm({ ...form, country: e.target.value })}
               required
             />
+            {fieldErrors.country && <p className="text-xs text-danger">{fieldErrors.country}</p>}
           </div>
           {error && <Alert variant="danger">{error}</Alert>}
           <Button type="submit" className="w-full" loading={loading}>
