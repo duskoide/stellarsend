@@ -74,7 +74,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </nav>
 
-      <main className="flex-1 pb-20 md:pb-0">{children}</main>
+      {/* Reserve space for the mobile bottom bar: min-h-[3.25rem] (52px) + the
+          safe-area inset (~34px notched iPhone). Do NOT change this to a round
+          number — it must track the bar's composition exactly. */}
+      <main className="flex-1 pb-[calc(3.25rem+env(safe-area-inset-bottom))] md:pb-0">{children}</main>
 
       {/* Mobile: the bar. env(safe-area-inset-bottom) keeps it clear of the
           home indicator — this is a web app, so the browser's own chrome sits
