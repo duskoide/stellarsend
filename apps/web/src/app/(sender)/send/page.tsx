@@ -3,7 +3,9 @@
 import { useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AmountInput } from "@/components/AmountInput";
-import { QuoteCard } from "@/components/QuoteCard";
+import { CurrencyPair } from "@/components/CurrencyPair";
+import { Slip, SlipLine } from "@/components/Slip";
+import { formatCurrency, formatFee } from "@/lib/format";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -164,7 +166,7 @@ export default function SendPage() {
   const busy = step !== "idle";
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col gap-4 px-4 py-12">
+    <main className="mx-auto flex w-full max-w-[460px] flex-col gap-3.5 px-4 py-6 md:py-10">
       <Card className="space-y-4">
         <CardTitle>Send money</CardTitle>
 
@@ -175,36 +177,19 @@ export default function SendPage() {
           assetCode={sourceAsset}
         />
 
-        <div className="grid grid-cols-2 gap-3">
-          <label className="space-y-1.5 text-sm font-medium text-muted-foreground">
-            Send currency
-            <select
-              value={sourceAsset}
-              onChange={(e) => handleSourceAssetChange(e.target.value as FiatAssetCode)}
-              className="min-h-11 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground"
-            >
-              {FIAT_ASSET_CODES.map((code) => (
-                <option key={code} value={code}>
-                  {code}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="space-y-1.5 text-sm font-medium text-muted-foreground">
-            Receive currency
-            <select
-              value={destAsset}
-              onChange={(e) => handleDestAssetChange(e.target.value as FiatAssetCode)}
-              className="min-h-11 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground"
-            >
-              {FIAT_ASSET_CODES.map((code) => (
-                <option key={code} value={code}>
-                  {code}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <CurrencyPair
+          source={sourceAsset}
+          dest={destAsset}
+          options={FIAT_ASSET_CODES}
+          onSourceChange={handleSourceAssetChange}
+          onDestChange={handleDestAssetChange}
+          onSwap={() => {
+            const [s, d] = [destAsset, sourceAsset];
+            setSourceAsset(s);
+            setDestAsset(d);
+            quote.reset();
+          }}
+        />
 
         {/* Recipient picker — no opaque IDs. */}
         <div className="space-y-2">
@@ -326,7 +311,17 @@ export default function SendPage() {
 
       {quote.data && (
         <>
-          <QuoteCard quote={quote.data} />
+          <Slip>
+            <SlipLine label="Rate" value={`1 ${sourceAsset} = ${quote.data.exchangeRate} ${destAsset}`} />
+            <SlipLine label="Our fee (0,005%)" value={formatFee(quote.data.feeAmount, sourceAsset)} />
+            {/* 100 stroops = 0.00001 XLM. NOT dollars — see spec §11. */}
+            <SlipLine label="Network fee" value="0,00001 XLM" />
+            <SlipLine
+              label="They receive"
+              value={formatCurrency(quote.data.destAmount, destAsset)}
+              total
+            />
+          </Slip>
 
           {error && <Alert variant="danger">{error}</Alert>}
 

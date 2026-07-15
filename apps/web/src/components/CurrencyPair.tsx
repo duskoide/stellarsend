@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { FiatAssetCode } from "@stellarsend/shared/constants";
 import { CurrencyPicker } from "./CurrencyPicker";
 
@@ -25,6 +25,8 @@ export function CurrencyPair({
   onSwap: () => void;
 }) {
   const [openSide, setOpenSide] = useState<"source" | "dest" | null>(null);
+  const sourceTriggerRef = useRef<HTMLButtonElement>(null);
+  const destTriggerRef = useRef<HTMLButtonElement>(null);
 
   return (
     <div>
@@ -32,6 +34,7 @@ export function CurrencyPair({
         <div className="flex flex-col items-start gap-0.5">
           <span className="font-mono text-[9px] uppercase tracking-[0.13em] text-muted-foreground">From</span>
           <button
+            ref={sourceTriggerRef}
             onClick={() => setOpenSide("source")}
             aria-label={`Change send currency, currently ${source}`}
             className="inline-flex min-h-[30px] items-center gap-1.5 rounded-md border border-foreground bg-background px-2 py-0.5 font-mono text-[15px] font-semibold"
@@ -57,6 +60,7 @@ export function CurrencyPair({
         <div className="flex flex-col items-end gap-0.5">
           <span className="font-mono text-[9px] uppercase tracking-[0.13em] text-muted-foreground">To</span>
           <button
+            ref={destTriggerRef}
             onClick={() => setOpenSide("dest")}
             aria-label={`Change receive currency, currently ${dest}`}
             className="inline-flex min-h-[30px] items-center gap-1.5 rounded-md border border-foreground bg-background px-2 py-0.5 font-mono text-[15px] font-semibold"
@@ -78,6 +82,7 @@ export function CurrencyPair({
         value={source}
         onSelect={onSourceChange}
         onClose={() => setOpenSide(null)}
+        returnFocusRef={sourceTriggerRef}
       />
       <CurrencyPicker
         open={openSide === "dest"}
@@ -86,6 +91,7 @@ export function CurrencyPair({
         value={dest}
         onSelect={onDestChange}
         onClose={() => setOpenSide(null)}
+        returnFocusRef={destTriggerRef}
       />
     </div>
   );

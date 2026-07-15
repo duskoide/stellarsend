@@ -1,7 +1,6 @@
 "use client";
 
 import { useId } from "react";
-import { Input } from "@/components/ui/input";
 
 interface AmountInputProps {
   value: string;
@@ -12,7 +11,6 @@ interface AmountInputProps {
 
 export function AmountInput({ value, onChange, assetCode, label }: AmountInputProps) {
   const id = useId();
-  const unitId = `${id}-unit`;
   return (
     <div className="flex flex-col gap-1.5">
       {label && (
@@ -20,20 +18,20 @@ export function AmountInput({ value, onChange, assetCode, label }: AmountInputPr
           {label}
         </label>
       )}
-      <div className="flex items-center gap-2">
-        <Input
+      <div className="flex items-baseline gap-2 border-b border-border pb-2.5">
+        <input
           id={id}
-          aria-describedby={unitId}
           inputMode="decimal"
-          placeholder="0.00"
           value={value}
           onChange={(e) => {
             const v = e.target.value;
             // allow only digits + one decimal point
             if (/^\d*\.?\d*$/.test(v)) onChange(v);
           }}
+          className="w-full min-w-0 bg-transparent font-mono text-[33px] font-medium tracking-[-0.03em] tabular-nums text-foreground outline-none"
         />
-        <span id={unitId} className="w-16 shrink-0 text-sm font-medium text-muted-foreground">
+        {/* A unit label. The pair below owns currency selection. */}
+        <span className="ml-auto shrink-0 font-mono text-[13px] font-medium text-muted-foreground">
           {assetCode}
         </span>
       </div>

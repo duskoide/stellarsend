@@ -20,6 +20,7 @@ export function CurrencyPicker({
   value,
   onSelect,
   onClose,
+  returnFocusRef,
 }: {
   open: boolean;
   title: string;
@@ -27,25 +28,60 @@ export function CurrencyPicker({
   value: FiatAssetCode;
   onSelect: (c: FiatAssetCode) => void;
   onClose: () => void;
+  returnFocusRef?: React.RefObject<HTMLElement | null>;
 }) {
   const [query, setQuery] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const wasOpen = useRef(false);
 
   useEffect(() => {
-    if (open) {
-      setQuery("");
-      searchRef.current?.focus();
+    if (!open) return;
+    setQuery("");
+    if (searchRef.current) {
+      searchRef.current.focus();
+    } else {
+      const selected = dialogRef.current?.querySelector<HTMLElement>('[aria-current="true"]');
+      const first = dialogRef.current?.querySelector<HTMLElement>("button");
+      (selected ?? first)?.focus();
     }
   }, [open]);
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab" || !dialogRef.current) return;
+      const focusable = Array.from(
+        dialogRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!first || !last) return;
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
+
+  useEffect(() => {
+    if (wasOpen.current && !open && returnFocusRef?.current) {
+      returnFocusRef.current.focus();
+    }
+    wasOpen.current = open;
+  }, [open, returnFocusRef]);
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -63,6 +99,7 @@ export function CurrencyPicker({
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
