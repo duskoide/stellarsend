@@ -161,9 +161,16 @@ themes share a colour playing opposite parts, which is what makes them feel like
 }
 ```
 
-Per the artifact/theming convention, `:root[data-theme="dark"]` and `:root[data-theme="light"]` must redefine
-the same tokens so an explicit toggle beats the media query in both directions. **Style components through the
-tokens only** — never inside the media query — so every component is written once.
+**There is a real theme toggle**, three-state: System / Light / Dark. `system` removes `data-theme` entirely so
+the media query decides; `light`/`dark` stamp it on `<html>` and win on specificity — `:root[data-theme="light"]`
+is (0,2,0) against the media query's `:root` at (0,1,0). **The `[data-theme="light"]` block is the whole point:**
+without it, a user who chooses Light on a dark-mode OS still gets dark. An inline `<head>` script applies the
+stored choice before first paint; React runs too late and the page would flash.
+
+**Style components through the tokens only** — never inside the media query, and **never with a Tailwind `dark:`
+utility.** There are no `dark:` classes and `tailwind.config.ts` needs no `darkMode` setting. Where a value
+differs by theme, it becomes a token: the slip's drop shadow is `--slip-shadow`, a real shadow in light and
+`none` in night (§5's border does that job instead). A component never knows which theme it is in.
 
 **Contrast, measured** against desk `#0F1413` / slip `#273330`:
 

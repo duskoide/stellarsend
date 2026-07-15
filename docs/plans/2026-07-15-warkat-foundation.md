@@ -10,7 +10,7 @@
 
 **Spec:** `docs/specs/2026-07-15-warkat-frontend-design.md`. Read §3–§7 before starting.
 
-**Scope note — this is plan 1 of 2.** This plan is frontend-only and changes **no** shared types, no API, no schema. The currency expansion (3→11 assets, `Beneficiary.currency`, the `transfer.ts` mismatch fix, recipient filtering) is a separate subsystem and gets its own plan — it touches `packages/shared`, `apps/api`, migrations, and the seed. Splitting means this plan ships a complete, demo-ready redesign on its own, which matters because `CLAUDE.md` puts multi-currency under NICE-TO-HAVE *after the backbone is green*, and the deadline is 23 July 2026. The `CurrencyPicker` built in Task 6 takes its options as a prop, so plan 2 widens the list without touching it.
+**Scope note — this is plan 1 of 2.** This plan is frontend-only and changes **no** shared types, no API, no schema. The currency expansion (3→11 assets, `Beneficiary.currency`, the `transfer.ts` mismatch fix, recipient filtering) is a separate subsystem and gets its own plan — it touches `packages/shared`, `apps/api`, migrations, and the seed. Splitting means this plan ships a complete, demo-ready redesign on its own, which matters because `CLAUDE.md` puts multi-currency under NICE-TO-HAVE *after the backbone is green*, and the deadline is 23 July 2026. The `CurrencyPicker` built in Task 7 takes its options as a prop, so plan 2 widens the list without touching it.
 
 ## Global Constraints
 
@@ -39,6 +39,8 @@ Every task's requirements implicitly include these. Copied from the spec.
 | `apps/web/src/app/layout.tsx:2,9-27,40` | **Modify.** Font imports and the `<html>` variable list. |
 | `apps/web/src/components/ui/{button,card,alert}.tsx` | **Modify.** Radius + variant mapping. |
 | `apps/web/src/components/AppShell.tsx` | **Create.** Replaces `NavBar`. Bottom bar <768px, left rail ≥768px. |
+| `apps/web/src/components/ThemeToggle.tsx` | **Create.** Three-state system/light/dark; stamps `data-theme`. |
+| `apps/web/src/components/QuoteCard.tsx` | **Delete.** Task 8 replaces it with `Slip`. |
 | `apps/web/src/components/CurrencyPicker.tsx` | **Create.** Searchable sheet. Options are a prop. |
 | `apps/web/src/components/CurrencyPair.tsx` | **Create.** From/swap/To. Owns both currency choices. |
 | `apps/web/src/components/Slip.tsx` | **Create.** The receipt line-item block, shared by Send and Status. |
@@ -121,9 +123,20 @@ function tokensAfter(from: number): Record<string, string> {
   return out;
 }
 
-const light = tokensAfter(0);
-const darkStart = css.indexOf("prefers-color-scheme: dark");
-const dark = tokensAfter(darkStart);
+/** Tokens declared in the first `{...}` block after `needle`. */
+function blockAfter(needle: string): Record<string, string> {
+  const i = css.indexOf(needle);
+  if (i === -1) throw new Error(`selector not found in globals.css: ${needle}`);
+  return tokensAfter(i);
+}
+
+// Four blocks. The media query is the no-JS fallback; the data-theme blocks are
+// what the toggle stamps, and they must beat the media query in BOTH directions
+// — which is why `light` needs an attribute block too, not just `dark`.
+const light = blockAfter(":root {");
+const darkMedia = blockAfter("prefers-color-scheme: dark");
+const darkAttr = blockAfter(':root[data-theme="dark"]');
+const lightAttr = blockAfter(':root[data-theme="light"]');
 
 function hslToRgb(css: string): [number, number, number] {
   const [hs, ss, ls] = css.split(/\s+/);
@@ -174,7 +187,12 @@ const PAIRS: Array<[string, string]> = [
   ["danger", "background"],
 ];
 
-describe.each([["light", light], ["dark", dark]])("%s theme", (_name, tok) => {
+describe.each([
+  ["light", light],
+  ["dark (media)", darkMedia],
+  ["dark (attr)", darkAttr],
+  ["light (attr)", lightAttr],
+])("%s", (_name, tok) => {
   it.each(PAIRS)("%s on %s meets WCAG AA (4.5:1)", (fg, bg) => {
     expect(tok[fg], `--${fg} missing`).toBeDefined();
     expect(tok[bg], `--${bg} missing`).toBeDefined();
@@ -183,9 +201,21 @@ describe.each([["light", light], ["dark", dark]])("%s theme", (_name, tok) => {
 });
 
 describe("theme parity", () => {
+  it("the dark attribute block matches the dark media block exactly", () => {
+    // If these drift, a user with the toggle on 'dark' sees a different app
+    // from a user whose OS is dark. Same design, two code paths.
+    expect(darkAttr).toEqual(darkMedia);
+  });
+
+  it("the light attribute block matches the light root exactly", () => {
+    const { radius, ...lightColours } = light;
+    expect(lightAttr).toEqual(lightColours);
+  });
+
   it("dark redefines every colour token light defines", () => {
-    const colour = (k: string) => k !== "radius";
-    const missing = Object.keys(light).filter(colour).filter((k) => !(k in dark));
+    const missing = Object.keys(light)
+      .filter((k) => k !== "radius")
+      .filter((k) => !(k in darkMedia));
     expect(missing).toEqual([]);
   });
 });
@@ -193,6 +223,22 @@ describe("theme parity", () => {
 describe("radius", () => {
   it("is 2px — paper is cut, not rounded", () => {
     expect(light.radius).toBe("2px");
+  });
+});
+
+describe("the slip shadow is a token, not a dark: variant", () => {
+  // The shadow lifts the slip off the desk in light. On a dark ground a shadow
+  // cannot do that, so night uses a border instead — see spec §5. Carrying this
+  // as a token rather than a `dark:` utility keeps components theme-agnostic
+  // and means Tailwind needs no darkMode config at all.
+  it("is defined in every theme block", () => {
+    for (const [name, tok] of [["light", light], ["dark media", darkMedia], ["dark attr", darkAttr], ["light attr", lightAttr]] as const) {
+      expect(tok["slip-shadow"], `--slip-shadow missing from ${name}`).toBeDefined();
+    }
+  });
+
+  it("is none in dark — a shadow cannot lift an object on a dark ground", () => {
+    expect(darkMedia["slip-shadow"]).toBe("none");
   });
 });
 ```
@@ -244,12 +290,21 @@ Replace the **first** `@layer base { :root { ... } }` block in `apps/web/src/app
                                            never a control boundary. §3 */
     --ring: 176 19% 14%;                /* #1D2B2A */
 
+    /* The shadow is what lifts the slip off the desk. It is a TOKEN, not a
+       `dark:` utility, so components never know which theme they are in — and
+       Tailwind needs no darkMode config. See §5. */
+    --slip-shadow: 0 1px 1px rgb(29 43 42 / 0.10), 0 10px 26px rgb(29 43 42 / 0.11);
+
     --radius: 2px;                      /* paper is cut, not rounded */
   }
 
   /* CARBON COPY — the night theme. Not an inversion: inverting paper gives a
      glowing slab. The counter after hours; the light theme's PAPER becomes the
-     chalk. §5. */
+     chalk. §5.
+     These three blocks must agree. The media query is the no-JS fallback; the
+     attribute blocks are what the toggle stamps. `:root[data-theme="light"]`
+     has higher specificity (0,2,0) than `:root` inside the media query (0,1,0),
+     which is exactly why an explicit "light" choice survives a dark OS. */
   @media (prefers-color-scheme: dark) {
     :root {
       --background: 168 14% 7%;           /* #0F1413  the desk */
@@ -272,7 +327,58 @@ Replace the **first** `@layer base { :root { ... } }` block in `apps/web/src/app
       --muted-foreground: 159 8% 64%;     /* #9DABA6 */
       --border: 163 10% 27%;              /* #3D4B47  decorative only */
       --ring: 90 11% 89%;                 /* #E4E7E1 */
+      --slip-shadow: none;                /* the border lifts it here */
     }
+  }
+
+  /* Explicit "dark" — must be byte-identical to the media block above.
+     tests/tokens.test.ts asserts this; if they drift, a toggle user and an
+     OS-dark user see different apps. */
+  :root[data-theme="dark"] {
+    --background: 168 14% 7%;
+    --surface: 165 13% 18%;
+    --foreground: 90 11% 89%;
+    --primary: 90 11% 89%;
+    --primary-foreground: 165 13% 18%;
+    --secondary: 147 43% 56%;
+    --secondary-foreground: 168 14% 7%;
+    --success: 147 43% 56%;
+    --success-foreground: 168 14% 7%;
+    --warning: 39 67% 55%;
+    --warning-foreground: 168 14% 7%;
+    --danger: 5 79% 68%;
+    --danger-foreground: 168 14% 7%;
+    --stamp: 5 79% 68%;
+    --muted: 165 13% 13%;
+    --muted-foreground: 159 8% 64%;
+    --border: 163 10% 27%;
+    --ring: 90 11% 89%;
+    --slip-shadow: none;
+  }
+
+  /* Explicit "light" — this block is the whole reason data-theme exists.
+     Without it, a user who chooses Light on a dark-mode OS still gets the
+     media query. Must be byte-identical to :root above, minus --radius. */
+  :root[data-theme="light"] {
+    --background: 77 14% 90%;
+    --surface: 72 20% 95%;
+    --foreground: 176 19% 14%;
+    --primary: 176 19% 14%;
+    --primary-foreground: 72 20% 95%;
+    --secondary: 144 39% 30%;
+    --secondary-foreground: 72 20% 95%;
+    --success: 144 39% 30%;
+    --success-foreground: 72 20% 95%;
+    --warning: 39 100% 27%;
+    --warning-foreground: 72 20% 95%;
+    --danger: 2 70% 41%;
+    --danger-foreground: 72 20% 95%;
+    --stamp: 2 70% 41%;
+    --muted: 87 13% 86%;
+    --muted-foreground: 167 8% 35%;
+    --border: 90 11% 78%;
+    --ring: 176 19% 14%;
+    --slip-shadow: 0 1px 1px rgb(29 43 42 / 0.10), 0 10px 26px rgb(29 43 42 / 0.11);
   }
 }
 ```
@@ -289,7 +395,7 @@ In `apps/web/tailwind.config.ts`, inside `theme.extend.colors` (after the `muted
 
 Run: `pnpm --filter web test`
 
-Expected: PASS — 32 contrast cases (16 pairs × 2 themes), plus theme parity and radius.
+Expected: PASS — 64 contrast cases (16 pairs × 4 blocks), 3 parity cases, radius, and 2 slip-shadow cases.
 
 - [ ] **Step 8: Typecheck**
 
@@ -395,11 +501,12 @@ In `apps/web/src/components/ui/card.tsx`, in the `Card` function, replace the `c
 
 ```ts
     className={clsx(
-      "rounded-md border border-border bg-surface p-5 shadow-sm",
       // Paper is cut, not rounded: rounded-md is --radius (2px) after Task 1.
-      // The shadow is what lifts the slip off the desk in the light theme.
-      // In the night theme the border does that job — see globals.css §5.
-      "dark:shadow-none",
+      // The shadow comes from a token, never a `dark:` variant — the component
+      // does not know which theme it is in. In light the shadow lifts the slip
+      // off the desk; in night --slip-shadow is `none` and the border does that
+      // job, because a shadow cannot lift an object on a dark ground (spec §5).
+      "rounded-md border border-border bg-surface p-5 shadow-[var(--slip-shadow)]",
       className,
     )}
 ```
@@ -651,11 +758,156 @@ thumb reach with logout beside primary destinations."
 
 ---
 
-## Task 5: Slip, Stamp, and CustodyChain
+## Task 5: Theme toggle
+
+**Files:**
+- Create: `apps/web/src/components/ThemeToggle.tsx`
+- Modify: `apps/web/src/app/layout.tsx` (no-flash script), `apps/web/src/components/AppShell.tsx` (mount the toggle)
+
+**Interfaces:**
+- Consumes: the `data-theme` blocks from Task 1; `AppShell` from Task 4.
+- Produces: `<ThemeToggle className?={string} />`. Writes `localStorage["theme"]` = `"light" | "dark"`, or removes the key for system. Stamps/removes `data-theme` on `document.documentElement`.
+
+> **Three states, not two.** `system` removes the attribute entirely so the media query decides; `light`/`dark` stamp it and win on specificity — `:root[data-theme="light"]` is (0,2,0) against the media query's `:root` at (0,1,0). Without the `light` attribute block from Task 1, a user choosing Light on a dark-mode OS would still get dark; that block is the whole point.
+>
+> **Do not add `darkMode` to `tailwind.config.ts`.** There are no `dark:` utilities — the theme lives entirely in tokens. Adding `darkMode: 'selector'` would be config for nothing.
+
+- [ ] **Step 1: Add the no-flash script**
+
+In `apps/web/src/app/layout.tsx`, inside `<head>` (add one if the file has none), **before** any stylesheet:
+
+```tsx
+        <script
+          // Runs before first paint: without it the page renders with the OS
+          // theme and then snaps to the stored choice — a visible flash on
+          // every load. Deliberately not a component: React would be too late.
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark"){document.documentElement.setAttribute("data-theme",t);}}catch(e){}})();`,
+          }}
+        />
+```
+
+> No `matchMedia` here on purpose: if there is no stored choice we leave the attribute unset and let the media query do it, which is instant and needs no JS.
+
+- [ ] **Step 2: Create the toggle**
+
+Create `apps/web/src/components/ThemeToggle.tsx`:
+
+```tsx
+"use client";
+
+import { useEffect, useState } from "react";
+import clsx from "clsx";
+
+type Theme = "system" | "light" | "dark";
+
+const NEXT: Record<Theme, Theme> = { system: "light", light: "dark", dark: "system" };
+const LABEL: Record<Theme, string> = { system: "System", light: "Light", dark: "Dark" };
+const ICON: Record<Theme, string> = { system: "◐", light: "☀", dark: "☾" };
+
+function apply(theme: Theme) {
+  const root = document.documentElement;
+  if (theme === "system") {
+    // Remove the attribute so the media query takes over again.
+    root.removeAttribute("data-theme");
+    localStorage.removeItem("theme");
+  } else {
+    root.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+  }
+}
+
+export function ThemeToggle({ className }: { className?: string }) {
+  // Always start at "system": the server cannot know localStorage, so any other
+  // initial value would mismatch on hydration. The inline script in layout.tsx
+  // has already stamped the real theme, so there is nothing to correct visually.
+  const [theme, setTheme] = useState<Theme>("system");
+
+  useEffect(() => {
+    const stored = localStorage.getItem("theme");
+    setTheme(stored === "light" || stored === "dark" ? stored : "system");
+  }, []);
+
+  const cycle = () => {
+    const next = NEXT[theme];
+    apply(next);
+    setTheme(next);
+  };
+
+  return (
+    <button
+      onClick={cycle}
+      aria-label={`Theme: ${LABEL[theme]}. Activate to switch to ${LABEL[NEXT[theme]]}.`}
+      className={clsx(
+        "flex min-h-11 items-center gap-2 rounded-md px-2 text-xs text-muted-foreground hover:text-foreground",
+        className,
+      )}
+    >
+      <span aria-hidden className="text-sm">{ICON[theme]}</span>
+      {LABEL[theme]}
+    </button>
+  );
+}
+```
+
+- [ ] **Step 3: Mount it in the shell**
+
+In `apps/web/src/components/AppShell.tsx`, import it:
+
+```ts
+import { ThemeToggle } from "./ThemeToggle";
+```
+
+In the **desktop rail**, replace the `<div className="mt-auto flex items-center gap-2 border-t border-border pt-2.5">` block with:
+
+```tsx
+        <div className="mt-auto flex flex-col gap-0.5 border-t border-border pt-2">
+          <ThemeToggle />
+          <button
+            onClick={logout}
+            className="flex min-h-11 items-center rounded-md px-2 text-left text-xs text-muted-foreground underline hover:text-foreground"
+          >
+            Log out
+          </button>
+        </div>
+```
+
+The mobile bar keeps its Account button — a theme control does not belong in a tab bar of three destinations, and there is no account screen in this plan to host it. **So on mobile the toggle is unreachable: a mobile user follows their OS and cannot override it.** That is a real gap in a mobile-first app, not a rounding error. It is recorded in Task 11 and is the obvious candidate for the next slice (an account screen). Do not solve it by wedging a fourth item into the tab bar.
+
+- [ ] **Step 4: Typecheck**
+
+Run: `pnpm --filter web typecheck`
+Expected: no errors.
+
+- [ ] **Step 5: Verify all three states, and the flash**
+
+Run: `pnpm --filter web dev`, log in, view at ≥768px.
+
+1. Set your OS to **dark**. Load the app → dark. The toggle reads **System**.
+2. Click → **Light**. The page turns light **even though the OS is dark**. *This is the case the `[data-theme="light"]` block exists for; if it stays dark, that block is missing or is losing on specificity.*
+3. Click → **Dark**. Click → **System**; the page follows the OS again.
+4. Choose **Light**, then hard-reload. **There must be no dark flash before it settles.** A flash means the inline script is missing, is after the stylesheet, or is not in `<head>`.
+5. In devtools, confirm `<html>` gains/loses `data-theme` and `localStorage.theme` tracks it.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add apps/web/src/components/ThemeToggle.tsx apps/web/src/components/AppShell.tsx apps/web/src/app/layout.tsx
+git commit -m "feat(web): three-state theme toggle (system/light/dark)
+
+Stamps data-theme on <html>; system removes it so the media query decides.
+The [data-theme=light] block is what lets an explicit Light choice survive a
+dark OS — it wins on specificity (0,2,0) over :root inside the media query.
+Inline head script prevents the flash; React would run too late."
+```
+
+---
+
+## Task 6: Slip, Stamp, and CustodyChain
 
 **Files:**
 - Create: `apps/web/src/components/Slip.tsx`, `apps/web/src/components/Stamp.tsx`, `apps/web/src/components/CustodyChain.tsx`
-- Delete: `apps/web/src/components/TxStatusStepper.tsx` (after Task 7 stops importing it)
+- Delete: `apps/web/src/components/TxStatusStepper.tsx` (after Task 9 stops importing it)
 
 **Interfaces:**
 - Consumes: `TransferStatus`, `TRANSFER_STEPS` from `@stellarsend/shared/constants`; `TransferEvent` from `@stellarsend/shared`.
@@ -836,7 +1088,7 @@ invented."
 
 ---
 
-## Task 6: CurrencyPicker and CurrencyPair
+## Task 7: CurrencyPicker and CurrencyPair
 
 **Files:**
 - Create: `apps/web/src/components/CurrencyPicker.tsx`, `apps/web/src/components/CurrencyPair.tsx`
@@ -1105,13 +1357,13 @@ the 3->11 asset expansion does not touch this component."
 
 ---
 
-## Task 7: Send screen
+## Task 8: Send screen
 
 **Files:**
 - Modify: `apps/web/src/app/(sender)/send/page.tsx`
 
 **Interfaces:**
-- Consumes: `CurrencyPair` (Task 6), `Slip`/`SlipLine` (Task 5), tokens (Task 1).
+- Consumes: `CurrencyPair` (Task 7), `Slip`/`SlipLine` (Task 6), tokens (Task 1).
 - Produces: nothing downstream.
 
 > **Preserve the existing logic exactly.** The one-action create→fund→submit (`send/page.tsx:135`) exists because quotes expire in 60s; the comment there is correct. Keep `STEP_LABEL`, the stale-quote message at `:156`, and the beneficiary loading. **This task changes presentation only.**
@@ -1186,6 +1438,14 @@ import { Slip, SlipLine } from "@/components/Slip";
 import { formatCurrency, formatFee } from "@/lib/format";
 ```
 
+`QuoteCard` now has no callers — delete it rather than leaving a dead component:
+
+```bash
+rm apps/web/src/components/QuoteCard.tsx
+```
+
+Remove its import from `send/page.tsx` too.
+
 - [ ] **Step 4: Constrain the page for the desk**
 
 Change the `<main>` className (line 167) from `mx-auto flex min-h-screen max-w-md flex-col gap-4 px-4 py-12` to:
@@ -1215,7 +1475,7 @@ Run the API locally (`turso dev --db-file local.db` in one shell, `pnpm --filter
 - [ ] **Step 7: Commit**
 
 ```bash
-git add apps/web/src/app/\(sender\)/send/page.tsx apps/web/src/components/AmountInput.tsx
+git add -A apps/web/src/app/\(sender\)/send/ apps/web/src/components/
 git commit -m "feat(web): Warkat Send screen
 
 Amount becomes the hero; the two native selects become one pair control with
@@ -1226,7 +1486,7 @@ quotes expire in 60s."
 
 ---
 
-## Task 8: Status screen
+## Task 9: Status screen
 
 **Files:**
 - Modify: `apps/web/src/app/(sender)/status/[id]/page.tsx`
@@ -1312,7 +1572,7 @@ Replace the `return (...)` block of `apps/web/src/app/(sender)/status/[id]/page.
       </main>
 
       {/* Desktop earns a second column: the whole chain at once, not scrolled. */}
-      <aside className="flex w-full flex-col gap-2 rounded-md border border-border bg-surface p-4 shadow-sm dark:shadow-none md:w-[300px] md:shrink-0">
+      <aside className="flex w-full flex-col gap-2 rounded-md border border-border bg-surface p-4 shadow-[var(--slip-shadow)] md:w-[300px] md:shrink-0">
         <div className="flex items-baseline justify-between border-b-2 border-foreground pb-2">
           <h2 className="font-display text-sm font-bold">Chain of custody</h2>
           <span className="font-mono text-[9px] text-muted-foreground">{events.length} EVENTS</span>
@@ -1349,7 +1609,7 @@ Expected: no errors. A failure means a stale import survives.
 
 - [ ] **Step 4: Verify with a real transfer**
 
-Complete a real send (Task 7's flow) and land on `/status/<id>`.
+Complete a real send (Task 8's flow) and land on `/status/<id>`.
 - On a 375px viewport **without scrolling**: the delivered amount, the stamp, and the full tx hash are all visible.
 - The Stellar Expert link opens the real transaction.
 - The custody chain shows only steps that have real events; the rest are hollow.
@@ -1368,7 +1628,7 @@ a second column for the custody chain."
 
 ---
 
-## Task 9: Claim screen and the fee copy
+## Task 10: Claim screen and the fee copy
 
 **Files:**
 - Modify: `apps/web/src/app/(receiver)/claim/[id]/page.tsx`, `apps/web/src/app/page.tsx:5`, `CLAUDE.md:16`
@@ -1503,7 +1763,7 @@ hackathon knows the base fee. Simulated-anchor disclaimer kept verbatim."
 
 ---
 
-## Task 10: Full-surface verification
+## Task 11: Full-surface verification
 
 **Files:** none — this task changes nothing. It is the gate.
 
@@ -1533,10 +1793,13 @@ Serve on your LAN (`pnpm --filter web dev -- -H 0.0.0.0`) and open the app **on 
 
 Expected: the bottom bar clears the home indicator and does not fight the browser toolbar as it hides and shows. **This cannot be verified in a narrow desktop window** — the viewport resize behaviour only happens on a real mobile browser. If it feels wrong in the hand, the fallback is a top bar at every breakpoint; say so rather than shipping something awkward.
 
-- [ ] **Step 4: Both themes, every screen**
+- [ ] **Step 4: Both themes, every screen, both ways of choosing**
 
-Toggle the OS theme and walk `/`, `/auth/login`, `/send`, `/status/<id>`, `/claim/<id>`.
-Expected: no unreadable text, no white flash, the stamp legible on both grounds, and the slip visibly lifted from the desk in both (shadow in light, border in night).
+Walk `/`, `/auth/login`, `/send`, `/status/<id>`, `/claim/<id>` in light and dark — **once by changing the OS theme, and once by using the toggle**, since those are two different code paths (media query vs `data-theme`) and the test only proves the token values match, not that the app renders them.
+
+Expected: no unreadable text, no flash on reload, the stamp legible on both grounds, and the slip visibly lifted from the desk in both (shadow in light, border in night).
+
+**Record the known gap:** the toggle is desktop-only. A mobile user follows their OS with no override, because the toggle lives in the rail and there is no account screen. Report it; do not fix it by adding a fourth tab.
 
 - [ ] **Step 5: Keyboard-only pass**
 
@@ -1553,10 +1816,10 @@ Report what you verified versus what you assumed, per `CLAUDE.md`'s working agre
 
 ## Self-Review
 
-**Spec coverage.** §3 tokens → Task 1. §3 type scale → Task 2. §4 colour semantics → Tasks 1, 3, 4 (nav is ink), 5 (Stamp). §5 night theme → Task 1. §6 layout → Tasks 4, 7, 8. §7.1 Send → Task 7. §7.2 Status → Task 8. §7.3 Claim → Task 9. §7.4 (landing/auth/history inherit) → Tasks 1–3. §10 a11y → Tasks 4, 6, 10. §11 fee → Tasks 7, 9. §12 tone → Tasks 7–9. §14 QA → Task 10.
+**Spec coverage.** §3 tokens → Task 1. §3 type scale → Task 2. §4 colour semantics → Tasks 1, 3, 4 (nav is ink), 6 (Stamp). §5 night theme → Tasks 1, 5. §6 layout → Tasks 4, 8, 9. §7.1 Send → Task 8. §7.2 Status → Task 9. §7.3 Claim → Task 10. §7.4 (landing/auth/history inherit) → Tasks 1–3. §10 a11y → Tasks 4, 5, 7, 11. §11 fee → Tasks 8, 10. §12 tone → Tasks 8–10. §14 QA → Task 11.
 
-**Deferred to plan 2 (currency expansion), by design:** §8 (11 assets, picker options, THIN BOOK), §9 (`Beneficiary.currency`, mismatch validation, recipient filtering), and the §14 items covering those. `CurrencyPicker` takes `options` as a prop and shows search at ≥8, so it absorbs the widening without modification.
+**Deferred to plan 2 (currency expansion), by design:** §8 (11 assets, picker options, THIN BOOK), §9 (`Beneficiary.currency`, mismatch validation, recipient filtering), and the §14 items covering those. `CurrencyPicker` (Task 7) takes `options` as a prop and shows search at ≥8, so it absorbs the widening without modification.
 
-**Known gap, deliberate.** The recipient block on Send keeps its current markup in this plan: the "can receive IDR" filter note needs `Beneficiary.currency`, which does not exist yet. It arrives in plan 2.
+**Known gap, deliberate.** The theme toggle is desktop-only — it lives in the rail, and there is no account screen to host it on mobile (Task 5, recorded in Task 11). Also, the recipient block on Send keeps its current markup in this plan: the "can receive IDR" filter note needs `Beneficiary.currency`, which does not exist yet. It arrives in plan 2.
 
-**Type consistency.** `FiatAssetCode` is used identically in Tasks 6 and 7. `CurrencyPicker` props (`open`/`title`/`options`/`value`/`onSelect`/`onClose`) match `CurrencyPair`'s two call sites. `CustodyChain({status, events})` matches Task 8's call. `Slip`/`SlipLine` signatures match Tasks 7–9. `Stamp({text, sub})` matches Tasks 8 and 9. Button/Alert/Card prop APIs are explicitly unchanged, so existing callers keep compiling.
+**Type consistency.** `FiatAssetCode` is used identically in Tasks 7 and 8. `CurrencyPicker` props (`open`/`title`/`options`/`value`/`onSelect`/`onClose`) match `CurrencyPair`'s two call sites. `CustodyChain({status, events})` matches Task 9's call. `Slip`/`SlipLine` signatures match Tasks 8–10. `Stamp({text, sub})` matches Tasks 9 and 10. `ThemeToggle` (Task 5) is consumed only by `AppShell` (Task 4). Button/Alert/Card prop APIs are explicitly unchanged, so existing callers keep compiling.
