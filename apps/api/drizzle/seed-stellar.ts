@@ -363,10 +363,10 @@ async function main() {
     for (const { source, destination } of pairs) {
       try {
         const send = await server
-          .strictSendPaths(source.asset, "100", [destination.asset])
+          .strictSendPaths(source.asset, "10", [destination.asset])
           .call();
         const receive = await server
-          .strictReceivePaths([source.asset], destination.asset, "100")
+          .strictReceivePaths([source.asset], destination.asset, "10")
           .call();
         const sendPath = send.records.find(hasXlmBridgeHop);
         const receivePath = receive.records.find(hasXlmBridgeHop);
