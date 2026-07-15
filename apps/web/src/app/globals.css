@@ -3,34 +3,131 @@
 @tailwind utilities;
 
 @layer base {
+  /* Warkat — the transfer as a document of record.
+     See docs/specs/2026-07-15-warkat-frontend-design.md §3.
+     HSL triples are machine-converted from hex; do not retype them by hand.
+     Contrast is enforced by tests/tokens.test.ts — if you change a value,
+     the test tells you whether you may. */
   :root {
-    /* Corporate design system tokens — see .agents/skills/design-system/SKILL.md */
-    --background: 0 0% 100%;
-    --surface: 0 0% 100%;
-    --foreground: 222 47% 11%;
+    --background: 77 14% 90%;           /* #E8EAE3  paper */
+    --surface: 72 20% 95%;              /* #F4F5F0  card */
+    --foreground: 176 19% 14%;          /* #1D2B2A  ink */
 
-    /* Design tokens per SKILL.md: primary=#3B82F6, success=#16A34A, warning=#D97706.
-       Values below are darkened one step (same hue family) where the literal hex
-       fails 4.5:1 text/button-label contrast on white — accessibility wins per
-       the skill's own "flag conflicts, prioritize accessibility" rule. */
-    --primary: 221 83% 53%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 258 90% 66%; /* #8B5CF6 — accent only, not used for text or filled buttons (borderline contrast) */
-    --secondary-foreground: 0 0% 100%;
+    /* The primary action is ink. There is no separate brand hue to drift. */
+    --primary: 176 19% 14%;             /* #1D2B2A */
+    --primary-foreground: 72 20% 95%;   /* #F4F5F0 */
+    --secondary: 144 39% 30%;           /* #2F6B47 */
+    --secondary-foreground: 72 20% 95%; /* #F4F5F0 */
 
-    --success: 142 72% 30%;
-    --success-foreground: 0 0% 100%;
-    --warning: 28 90% 37%;
-    --warning-foreground: 0 0% 100%;
-    --danger: 0 74% 51%; /* #DC2626 — passes as-is */
-    --danger-foreground: 0 0% 100%;
+    --success: 144 39% 30%;             /* #2F6B47  progress, completed steps */
+    --success-foreground: 72 20% 95%;   /* #F4F5F0 */
+    --warning: 39 100% 27%;             /* #8A5A00  blocked, not broken */
+    --warning-foreground: 72 20% 95%;   /* #F4F5F0 */
+    --danger: 2 70% 41%;                /* #B3241F */
+    --danger-foreground: 72 20% 95%;    /* #F4F5F0 */
 
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 40%; /* darkened from 47% for AA contrast on white */
-    --border: 214 32% 91%;
-    --ring: 221 83% 53%;
+    /* Validation ink. Same value as --danger, different intent: --stamp is the
+       rubber stamp (SETTLED / TERVERIFIKASI / GAGAL — the WORD carries the
+       meaning), --danger is an error. Red appears nowhere else. §4. */
+    --stamp: 2 70% 41%;                 /* #B3241F */
 
-    --radius: 0.5rem;
+    --muted: 87 13% 86%;                /* #DDE1D8 */
+    --muted-foreground: 167 8% 35%;     /* #53615E — darkened from #5D6B68,
+                                           which failed AA on --muted (4.20) */
+    --border: 90 11% 78%;               /* #C6CCC0  DECORATIVE ONLY — 1.35:1,
+                                           never a control boundary. §3 */
+    --ring: 176 19% 14%;                /* #1D2B2A */
+
+    /* The shadow is what lifts the slip off the desk. It is a TOKEN, not a
+       `dark:` utility, so components never know which theme they are in — and
+       Tailwind needs no darkMode config. See §5. */
+    --slip-shadow: 0 1px 1px rgb(29 43 42 / 0.10), 0 10px 26px rgb(29 43 42 / 0.11);
+
+    --radius: 2px;                      /* paper is cut, not rounded */
+  }
+
+  /* CARBON COPY — the night theme. Not an inversion: inverting paper gives a
+     glowing slab. The counter after hours; the light theme's PAPER becomes the
+     chalk. §5.
+     These three blocks must agree. The media query is the no-JS fallback; the
+     attribute blocks are what the toggle stamps. The explicit "light" attribute
+     selector (below, data-theme=light) has higher specificity (0,2,0) than
+     `:root` inside the media query (0,1,0), which is exactly why an explicit
+     "light" choice survives a dark OS. */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: 168 14% 7%;           /* #0F1413  the desk */
+      --surface: 165 13% 18%;             /* #273330  the slip */
+      --foreground: 90 11% 89%;           /* #E4E7E1  chalk = light's paper */
+      --primary: 90 11% 89%;              /* #E4E7E1 */
+      --primary-foreground: 165 13% 18%;  /* #273330 */
+      --secondary: 147 43% 56%;           /* #5FBF8A */
+      --secondary-foreground: 168 14% 7%; /* #0F1413 */
+      --success: 147 43% 56%;             /* #5FBF8A */
+      --success-foreground: 168 14% 7%;   /* #0F1413 */
+      --warning: 39 67% 55%;              /* #D9A441 */
+      --warning-foreground: 168 14% 7%;   /* #0F1413 */
+      --danger: 5 79% 68%;                /* #EE7A6F */
+      --danger-foreground: 168 14% 7%;    /* #0F1413 */
+      /* #B3241F scores 4.13 on slate and FAILS. #EE7A6F is 4.77 — the least
+         change that passes. Any lighter reads pink instead of official. */
+      --stamp: 5 79% 68%;                 /* #EE7A6F */
+      --muted: 165 13% 13%;               /* #1C2422 */
+      --muted-foreground: 159 8% 64%;     /* #9DABA6 */
+      --border: 163 10% 27%;              /* #3D4B47  decorative only */
+      --ring: 90 11% 89%;                 /* #E4E7E1 */
+      --slip-shadow: none;                /* the border lifts it here */
+    }
+  }
+
+  /* Explicit "dark" — must be byte-identical to the media block above.
+     tests/tokens.test.ts asserts this; if they drift, a toggle user and an
+     OS-dark user see different apps. */
+  :root[data-theme="dark"] {
+    --background: 168 14% 7%;
+    --surface: 165 13% 18%;
+    --foreground: 90 11% 89%;
+    --primary: 90 11% 89%;
+    --primary-foreground: 165 13% 18%;
+    --secondary: 147 43% 56%;
+    --secondary-foreground: 168 14% 7%;
+    --success: 147 43% 56%;
+    --success-foreground: 168 14% 7%;
+    --warning: 39 67% 55%;
+    --warning-foreground: 168 14% 7%;
+    --danger: 5 79% 68%;
+    --danger-foreground: 168 14% 7%;
+    --stamp: 5 79% 68%;
+    --muted: 165 13% 13%;
+    --muted-foreground: 159 8% 64%;
+    --border: 163 10% 27%;
+    --ring: 90 11% 89%;
+    --slip-shadow: none;
+  }
+
+  /* Explicit "light" — this block is the whole reason data-theme exists.
+     Without it, a user who chooses Light on a dark-mode OS still gets the
+     media query. Must be byte-identical to :root above, minus --radius. */
+  :root[data-theme="light"] {
+    --background: 77 14% 90%;
+    --surface: 72 20% 95%;
+    --foreground: 176 19% 14%;
+    --primary: 176 19% 14%;
+    --primary-foreground: 72 20% 95%;
+    --secondary: 144 39% 30%;
+    --secondary-foreground: 72 20% 95%;
+    --success: 144 39% 30%;
+    --success-foreground: 72 20% 95%;
+    --warning: 39 100% 27%;
+    --warning-foreground: 72 20% 95%;
+    --danger: 2 70% 41%;
+    --danger-foreground: 72 20% 95%;
+    --stamp: 2 70% 41%;
+    --muted: 87 13% 86%;
+    --muted-foreground: 167 8% 35%;
+    --border: 90 11% 78%;
+    --ring: 176 19% 14%;
+    --slip-shadow: 0 1px 1px rgb(29 43 42 / 0.10), 0 10px 26px rgb(29 43 42 / 0.11);
   }
 }
 
