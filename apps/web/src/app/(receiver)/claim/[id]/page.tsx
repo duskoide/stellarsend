@@ -61,6 +61,10 @@ export default function ClaimPage({ params }: { params: { id: string } }) {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-[460px] flex-col gap-3.5 px-4 py-8">
+      <a href="/" className="text-[11px] font-semibold underline">
+        ← StellarSend
+      </a>
+
       <div className="flex items-baseline justify-between border-b-2 border-foreground pb-2">
         <h1 className="font-display text-base font-bold">
           {completed ? "Uang diterima" : "Claim your funds"}
