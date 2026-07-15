@@ -217,7 +217,7 @@ async function main() {
         {
           selling: XLM,
           buying: market.asset,
-          amount: "300",
+          amount: "1000",
           price: localPerXlm.mul(level).toFixed(7),
         },
         {
