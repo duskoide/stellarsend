@@ -53,37 +53,63 @@ change the asset set, one API validation, and one shared type — each called ou
 ## 3. Design tokens and foundations
 
 Ported into `apps/web/src/app/globals.css`, replacing the values but **keeping the existing structure** —
-the `:focus-visible` ring, `prefers-reduced-motion`, and `prefers-contrast: more` blocks stay as written.
+the `:focus-visible` ring and `prefers-reduced-motion` block stay exactly as written.
+
+**`prefers-contrast: more` did NOT survive unchanged, and could not have.** It hardcoded corporate-blue values
+(`--muted-foreground: 222 47% 11%`) written when the app was light-only. Against the night theme's ground that
+measures **1.04:1** — invisible text, for the users who explicitly asked for *more* contrast. It also lost
+specificity to the `[data-theme]` blocks, so an explicit theme choice made high-contrast silently do nothing.
+It is now four rules — one per activation path — each drawing from its own theme's scale. See §10.
 
 ```css
 :root {
-  --background: 77 14% 90%;         /* #E8EAE3  paper */
-  --surface: 72 20% 95%;            /* #F4F5F0  card */
-  --foreground: 176 19% 14%;        /* #1D2B2A  ink */
-  --muted-foreground: 167 7% 39%;   /* #5D6B68 */
-  --border: 90 11% 78%;             /* #C6CCC0  rule — DECORATIVE ONLY, see below */
-  --stamp: 2 70% 41%;               /* #B3241F  validation ink */
-  --success: 144 39% 30%;           /* #2F6B47 */
-  --warning: 39 100% 27%;           /* #8A5A00 */
-  --radius: 2px;                    /* paper is cut, not rounded */
+  --background: 77 14% 90%;
+  --surface: 72 20% 95%;
+  --foreground: 176 19% 14%;
+  --primary: 176 19% 14%;
+  --primary-foreground: 72 20% 95%;
+  --secondary: 144 39% 30%;
+  --secondary-foreground: 72 20% 95%;
+  --success: 144 39% 30%;
+  --success-foreground: 72 20% 95%;
+  --warning: 39 100% 27%;
+  --warning-foreground: 72 20% 95%;
+  --danger: 2 70% 41%;
+  --danger-foreground: 72 20% 95%;
+  --stamp: 2 70% 41%;
+  --muted: 87 13% 86%;
+  --muted-foreground: 167 8% 35%;
+  --border: 90 11% 78%;
+  --ring: 176 19% 14%;
+  --slip-shadow: 0 1px 1px rgb(29 43 42 / 0.10), 0 10px 26px rgb(29 43 42 / 0.11);
+  --radius: 2px;
 }
 ```
 
-These HSL triples are machine-converted from the hex values, not eyeballed — copy them verbatim. `--danger`
-and `--secondary` from the current file are **removed**: `--stamp` covers alerts (§4), and the corporate
-violet accent has no role in a paper document. `--primary` is also removed — the primary action is ink, so
-buttons use `--foreground` and there is no separate primary hue to drift out of sync.
+These HSL triples are machine-converted from the hex values, not eyeballed — copy them verbatim.
+
+**The token NAMES are unchanged from the corporate system; only the values move.** An earlier draft of this spec
+said to remove `--danger`, `--primary`, and `--secondary`. That was wrong: `Button` has a `variant="danger"`
+bound to `bg-danger`, and `Alert` maps `danger`/`info`/`warning`/`success`/`neutral` onto these tokens, so
+removing them breaks both primitives and every page that calls them. Instead they are **repointed**:
+`--primary` is ink (the primary action on paper is ink, so there is no separate brand hue to drift), and
+`--danger` carries the same red as `--stamp`. `--stamp` and `--danger` share a value but not an intent —
+`--stamp` is the rubber stamp whose *word* carries the meaning (§4), `--danger` is an error.
 
 **Contrast, measured (not assumed).** Against paper `#E8EAE3` / card `#F4F5F0`:
 
 | Token | Paper | Card | Verdict |
 |---|---|---|---|
 | ink `#1D2B2A` | 12.09 | 13.39 | AA text |
-| muted `#5D6B68` | 4.59 | 5.09 | AA text |
+| muted `#53615E` | 5.34 | 5.92 | AA text |
 | stamp `#B3241F` | 5.43 | 6.01 | AA text |
 | success `#2F6B47` | 5.22 | 5.78 | AA text |
 | warning `#8A5A00` | 4.89 | 5.41 | AA text |
 | rule `#C6CCC0` | 1.35 | 1.50 | **fails 1.4.11** |
+
+`--muted-foreground` is `#53615E`, not the `#5D6B68` an earlier draft used: that value scored **4.20** against
+`--muted`, and `Alert variant="neutral"` renders muted-foreground on exactly that fill. It must clear AA on all
+three grounds — paper, card, and muted.
 
 **Rule (`--border`) is decorative only.** At 1.35:1 it cannot carry a control boundary under WCAG 1.4.11
 (3:1 required). It may separate and group; it may never be the visible edge of an interactive element.
