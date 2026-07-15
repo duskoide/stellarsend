@@ -217,3 +217,186 @@ describe("prefers-contrast: more", () => {
     expect(hcDarkAttr).toEqual(hcDarkMedia);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Cascade resolution — models how a browser actually picks a value for a
+// custom property, instead of reading one block's text in isolation the way
+// `blockAfter`/`tokensAfter` do above. Every test above this line asserts on
+// SOURCE TEXT: it locates a selector by string and reads the declarations
+// inside that literal block. It can never see which rule actually *wins* a
+// tie for a given user, so a reorder of two same-specificity `:root` blocks
+// (see the `@media (prefers-contrast: more)` section of globals.css) sails
+// through all 80 of those tests while silently flipping which values a real
+// browser applies. This section fixes that blind spot by building a small
+// cascade resolver and asserting on the RESOLVED result.
+// ---------------------------------------------------------------------------
+
+interface CssRule {
+  selector: string;
+  /** Enclosing @media conditions, each possibly "condA and condB". */
+  media: string[];
+  /** Source position of the selector — used to break specificity ties. */
+  index: number;
+  tokens: Record<string, string>;
+}
+
+/**
+ * Parse `css` (already comment-stripped, see top of file) into a flat list
+ * of rules. Brace depth is tracked with an explicit stack of open blocks —
+ * NOT a "last @media seen" heuristic, which would keep attributing rules to
+ * a media block after it has actually closed.
+ */
+function parseRules(source: string): CssRule[] {
+  const rules: CssRule[] = [];
+  const stack: Array<{ type: "media"; cond: string } | { type: "other" }> = [];
+  let i = 0;
+  const n = source.length;
+  while (i < n) {
+    while (i < n && /\s/.test(source[i]!)) i++;
+    if (i >= n) break;
+    if (source[i] === "}") {
+      stack.pop();
+      i++;
+      continue;
+    }
+    let j = i;
+    while (j < n && source[j] !== "{" && source[j] !== ";") j++;
+    if (j >= n) break;
+    if (source[j] === ";") {
+      // Statement at-rule, e.g. `@tailwind base;` — nothing to track.
+      i = j + 1;
+      continue;
+    }
+    const head = source.slice(i, j).trim();
+    const selectorIndex = i;
+    if (head.startsWith("@media")) {
+      stack.push({ type: "media", cond: head.slice("@media".length).trim() });
+      i = j + 1;
+      continue;
+    }
+    if (head.startsWith("@")) {
+      // @layer, or any other wrapper at-rule — transparent to the cascade.
+      stack.push({ type: "other" });
+      i = j + 1;
+      continue;
+    }
+    // A rule: scan to its matching closing brace.
+    let depth = 1;
+    let k = j + 1;
+    while (k < n && depth > 0) {
+      if (source[k] === "{") depth++;
+      else if (source[k] === "}") depth--;
+      k++;
+    }
+    const body = source.slice(j + 1, k - 1);
+    const tokens: Record<string, string> = {};
+    for (const m of body.matchAll(/--([\w-]+):\s*([^;]+);/g)) {
+      tokens[m[1]!] = m[2]!.trim();
+    }
+    const media = stack
+      .filter((s): s is { type: "media"; cond: string } => s.type === "media")
+      .map((s) => s.cond);
+    rules.push({ selector: head, media, index: selectorIndex, tokens });
+    i = k;
+  }
+  return rules;
+}
+
+const allRules = parseRules(css);
+
+interface Env {
+  prefersDark: boolean;
+  prefersContrast: boolean;
+  dataTheme: "light" | "dark" | null;
+}
+
+/** Bare `:root` always matches the root element; `:root[data-theme="x"]`
+ * matches only when that attribute is stamped on it. */
+function selectorApplies(selector: string, dataTheme: Env["dataTheme"]): boolean {
+  if (selector === ":root") return true;
+  const m = /^:root\[data-theme="(\w+)"\]$/.exec(selector);
+  if (m) return dataTheme === m[1];
+  return false;
+}
+
+function mediaApplies(conditions: string[], env: Env): boolean {
+  for (const cond of conditions) {
+    for (const part of cond.split(/\s+and\s+/).map((p) => p.trim())) {
+      if (part === "(prefers-color-scheme: dark)") {
+        if (!env.prefersDark) return false;
+      } else if (part === "(prefers-contrast: more)") {
+        if (!env.prefersContrast) return false;
+      } else {
+        throw new Error(`cascade resolver: unhandled media condition "${part}"`);
+      }
+    }
+  }
+  return true;
+}
+
+/** `:root[data-theme=...]` is (0,2,0); bare `:root` is (0,1,0). Every rule
+ * in this file lives in the same `@layer base`, so layers never differ. */
+function specificity(selector: string): number {
+  return /^:root\[data-theme="\w+"\]$/.test(selector) ? 2 : 1;
+}
+
+/**
+ * Resolve every custom property for `env` the way a browser would: gather
+ * the rules whose selector and media conditions apply, then merge them in
+ * cascade order — ascending specificity, ties broken by ascending source
+ * order — so the last-applied rule's declarations win, exactly as the CSS
+ * cascade would resolve them.
+ */
+function resolve(env: Env): Record<string, string> {
+  const applicable = allRules
+    .filter((r) => selectorApplies(r.selector, env.dataTheme))
+    .filter((r) => mediaApplies(r.media, env))
+    .sort((a, b) => specificity(a.selector) - specificity(b.selector) || a.index - b.index);
+  const out: Record<string, string> = {};
+  for (const rule of applicable) Object.assign(out, rule.tokens);
+  return out;
+}
+
+// All 8 combinations of prefersDark × prefersContrast × dataTheme, where
+// dataTheme is either unset (null — OS preference decides) or explicitly
+// stamped to match the OS preference (the "toggle picked what the OS already
+// wanted" case).
+const ENVS: Env[] = [];
+for (const prefersDark of [false, true]) {
+  for (const prefersContrast of [false, true]) {
+    for (const dataTheme of [null, prefersDark ? "dark" : "light"] as const) {
+      ENVS.push({ prefersDark, prefersContrast, dataTheme });
+    }
+  }
+}
+
+function envLabel(env: Env): string {
+  return `prefersDark=${env.prefersDark} prefersContrast=${env.prefersContrast} dataTheme=${env.dataTheme ?? "null"}`;
+}
+
+describe("cascade resolution (resolved winner, not source-block text)", () => {
+  it.each(ENVS.map((env) => [envLabel(env), env] as const))(
+    "%s: resolved tokens meet contrast",
+    (_label, env) => {
+      const resolved = resolve(env);
+      expect(
+        contrast(must(resolved, "muted-foreground"), must(resolved, "background")),
+      ).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrast(must(resolved, "muted-foreground"), must(resolved, "surface")),
+      ).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrast(must(resolved, "foreground"), must(resolved, "background")),
+      ).toBeGreaterThanOrEqual(4.5);
+      if (env.prefersContrast) {
+        // WCAG 1.4.11 (non-text contrast) applies only to the high-contrast
+        // border; the everyday border is decorative and deliberately 1.35:1
+        // (see globals.css) — asserting 3:1 there would fail correctly
+        // designed CSS.
+        expect(
+          contrast(must(resolved, "border"), must(resolved, "background")),
+        ).toBeGreaterThanOrEqual(3);
+      }
+    },
+  );
+});
