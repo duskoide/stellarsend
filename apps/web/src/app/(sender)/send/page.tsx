@@ -206,7 +206,7 @@ export default function SendPage() {
                 id={recipientId}
                 value={beneficiaryId}
                 onChange={(e) => setBeneficiaryId(e.target.value)}
-                className="w-full min-h-11 rounded-md border border-border bg-surface px-3 py-2 text-sm"
+                className="w-full min-h-11 rounded-md border border-foreground bg-surface px-3 py-2 text-sm"
               >
                 {beneficiaries.map((b) => (
                   <option key={b.id} value={b.id}>
@@ -247,7 +247,7 @@ export default function SendPage() {
                 onChange={(e) =>
                   setNewBen({ ...newBen, method: e.target.value as PayoutMethod })
                 }
-                className="min-h-11 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground"
+                className="min-h-11 w-full rounded-md border border-foreground bg-surface px-3 py-2 text-sm text-foreground"
               >
                 {PAYOUT_METHOD.map((method) => (
                   <option key={method} value={method}>

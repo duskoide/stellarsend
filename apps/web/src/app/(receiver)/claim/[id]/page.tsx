@@ -119,7 +119,7 @@ export default function ClaimPage({ params }: { params: { id: string } }) {
           href={stellarExpertTxUrl(claim.stellarTxHash)}
           target="_blank"
           rel="noreferrer"
-          className="mt-auto block break-all rounded-md border border-dashed border-border bg-surface px-2 py-1.5 font-mono text-[9px] underline"
+          className="mt-auto block break-all rounded-md border border-dashed border-foreground bg-surface px-2 py-1.5 font-mono text-[9px] underline"
         >
           {claim.stellarTxHash} · verify →
         </a>

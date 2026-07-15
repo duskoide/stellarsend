@@ -18,7 +18,7 @@ export function AmountInput({ value, onChange, assetCode, label }: AmountInputPr
           {label}
         </label>
       )}
-      <div className="flex items-baseline gap-2 border-b border-border pb-2.5">
+      <div className="flex items-baseline gap-2 border-b border-foreground pb-2.5">
         <input
           id={id}
           inputMode="decimal"
