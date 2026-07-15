@@ -1,10 +1,10 @@
 "use client";
 
-import { Card, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { TxStatusStepper } from "@/components/TxStatusStepper";
+import { Stamp } from "@/components/Stamp";
+import { CustodyChain } from "@/components/CustodyChain";
+import { Slip } from "@/components/Slip";
 import { useTxStatus } from "@/hooks/useTxStatus";
-import { formatCurrency, formatFee, formatTxHash, stellarExpertTxUrl } from "@/lib/format";
+import { formatCurrency, stellarExpertTxUrl } from "@/lib/format";
 
 export default function StatusPage({ params }: { params: { id: string } }) {
   const { data: transfer, isLoading, error } = useTxStatus(params.id);
@@ -29,76 +29,82 @@ export default function StatusPage({ params }: { params: { id: string } }) {
   })();
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col gap-4 px-4 py-12">
-      <Card className="space-y-4">
-        <div className="flex items-start justify-between gap-2">
-          <CardTitle>Transfer status</CardTitle>
-          {done && elapsed && <Badge variant="success">Delivered in {elapsed}</Badge>}
-        </div>
-
-        <div className="flex items-baseline gap-2">
-          <span className="text-sm text-muted-foreground">
-            {formatCurrency(transfer.sourceAmount, transfer.sourceAsset)}
-          </span>
-          <span className="text-muted-foreground">→</span>
-          <span className="text-lg font-semibold">
-            {formatCurrency(transfer.destAmount, transfer.destAsset)}
+    <div className="mx-auto flex w-full max-w-[460px] flex-col gap-3.5 px-4 py-6 md:max-w-[800px] md:flex-row md:items-start md:gap-6 md:py-10">
+      <main className="flex w-full flex-col gap-3.5 md:max-w-[460px]">
+        <div className="flex items-baseline justify-between border-b-2 border-foreground pb-2">
+          <h1 className="font-display text-base font-bold">Transfer record</h1>
+          <span className="font-mono text-[9px] tracking-[0.06em] text-muted-foreground">
+            #{transfer.id.slice(-4).toUpperCase()}
           </span>
         </div>
-        <p className="-mt-2 text-xs text-muted-foreground">
-          Fee {formatFee(transfer.feeAmount, transfer.sourceAsset)} · rate{" "}
-          {Number(transfer.exchangeRate).toLocaleString()}
-        </p>
 
-        <TxStatusStepper status={transfer.status} events={events} />
-      </Card>
+        <div className="flex items-start justify-between gap-2.5">
+          <div>
+            <p className="font-mono text-[9px] uppercase tracking-[0.13em] text-muted-foreground">
+              {done ? "Delivered" : "Sending"}
+            </p>
+            <p className="font-mono text-[25px] font-semibold tracking-[-0.03em] tabular-nums">
+              {formatCurrency(transfer.destAmount, transfer.destAsset)}
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              from {formatCurrency(transfer.sourceAmount, transfer.sourceAsset)}
+            </p>
+          </div>
+          {/* Elapsed only exists once we have both events. No events, no claim. */}
+          {done && elapsed && <Stamp text="SETTLED" sub={`ON-CHAIN · ${elapsed}`} />}
+        </div>
 
-      {/* The proof. This link is the pitch — a judge can verify it themselves, live. */}
-      {transfer.stellarTxHash && (
-        <Card className="space-y-2">
-          <CardTitle>On-chain proof</CardTitle>
+        {/* THE PROOF. Above the fold. A judge verifies this live. */}
+        {transfer.stellarTxHash && (
+          <div className="flex flex-col gap-1.5 rounded-md border border-foreground bg-surface p-2.5">
+            <p className="font-mono text-[9px] uppercase tracking-[0.13em] text-muted-foreground">
+              Stellar transaction hash
+            </p>
+            <p className="break-all rounded-md border border-dashed border-border bg-background px-1.5 py-1.5 font-mono text-[10px] leading-relaxed">
+              {transfer.stellarTxHash}
+            </p>
+            <a
+              href={stellarExpertTxUrl(transfer.stellarTxHash)}
+              target="_blank"
+              rel="noreferrer"
+              className="text-[11px] font-semibold underline"
+            >
+              Verify on Stellar Expert →
+            </a>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <Slip>
+            <p className="font-mono text-[9px] uppercase tracking-[0.13em] text-muted-foreground">Route</p>
+            <p className="pt-0.5 font-mono text-[13px] font-medium">
+              {transfer.sourceAsset} → XLM → {transfer.destAsset}
+            </p>
+          </Slip>
+          <Slip>
+            <p className="font-mono text-[9px] uppercase tracking-[0.13em] text-muted-foreground">Rate</p>
+            <p className="pt-0.5 font-mono text-[13px] font-medium tabular-nums">{transfer.exchangeRate}</p>
+          </Slip>
+        </div>
+
+        {!done && (
           <a
-            href={stellarExpertTxUrl(transfer.stellarTxHash)}
-            target="_blank"
-            rel="noreferrer"
-            className="block break-all rounded-md bg-muted px-3 py-2 font-mono text-xs text-primary underline"
+            href={`/claim/${transfer.id}`}
+            className="min-h-11 rounded-md border border-foreground px-4 py-3 text-center text-sm font-semibold"
           >
-            {formatTxHash(transfer.stellarTxHash, 10)}
+            Open recipient&apos;s view →
           </a>
-          <p className="text-xs text-muted-foreground">
-            Verify on Stellar Expert →
-          </p>
-        </Card>
-      )}
+        )}
+      </main>
 
-      {/* Hand off to the recipient's view. Keeps the demo flowing without typing URLs. */}
-      {!done && (
-        <a
-          href={`/claim/${transfer.id}`}
-          className="rounded-md border border-border px-4 py-3 text-center text-sm font-medium transition-colors hover:bg-muted"
-        >
-          Open recipient&apos;s view →
-        </a>
-      )}
-
-      <Card className="space-y-2">
-        <CardTitle>Timeline</CardTitle>
-        <ul className="space-y-1.5 text-sm">
-          {events.map((e) => (
-            <li key={e.id} className="flex justify-between gap-3">
-              <span className="min-w-0">
-                <span className="font-medium">{e.status}</span>
-                {e.message && (
-                  <span className="block text-xs text-muted-foreground">{e.message}</span>
-                )}
-              </span>
-              <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                {new Date(e.createdAt).toLocaleTimeString()}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </Card>
-    </main>
+      {/* Desktop earns a second column: the whole chain at once, not scrolled. */}
+      <aside className="flex w-full flex-col gap-2 rounded-md border border-border bg-surface p-4 shadow-[var(--slip-shadow)] md:w-[300px] md:shrink-0">
+        <div className="flex items-baseline justify-between border-b-2 border-foreground pb-2">
+          <h2 className="font-display text-sm font-bold">Chain of custody</h2>
+          <span className="font-mono text-[9px] text-muted-foreground">{events.length} EVENTS</span>
+        </div>
+        <CustodyChain status={transfer.status} events={events} />
+      </aside>
+    </div>
   );
 }
