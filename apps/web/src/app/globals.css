@@ -167,10 +167,49 @@
     }
   }
 
+  /* prefers-contrast: more — NOT a single `:root` rule. A theme is active one
+     of four ways (OS-light via bare `:root`, OS-dark via the
+     `prefers-color-scheme` media `:root`, or an explicit choice via
+     `:root[data-theme="light"|"dark"]`), and a lone `:root` override cannot
+     serve all four: it can't hold two different colour values at once for
+     light vs. dark, and — even if it picked one — `:root[data-theme]` is
+     (0,2,0) versus bare `:root`'s (0,1,0), so an explicit toggle choice would
+     silently outrank and discard it. That was the bug: corporate-blue values
+     baked into one `:root` block leaked into dark mode (1.04:1, invisible)
+     and were unreachable once a theme was chosen explicitly.
+     The fix mirrors the theme structure exactly: one rule per activation
+     path, each pulling from ITS theme's own scale (muted-foreground ->
+     that theme's --foreground, border -> that theme's normal
+     --muted-foreground), and the two attribute rules repeat
+     `[data-theme=...]` so they match the (0,2,0) they must outrank. Where two
+     rules share specificity (0,1,0) and could both apply — bare `:root` vs.
+     `prefers-color-scheme: dark` `:root` — the dark rule is placed second so
+     source order resolves it correctly for a no-toggle, OS-dark user; the
+     (0,2,0) attribute rules below settle every explicit-toggle case
+     regardless of order, since higher specificity always wins. */
   @media (prefers-contrast: more) {
     :root {
-      --border: 215 16% 40%;
-      --muted-foreground: 222 47% 11%;
+      --border: 167 8% 35%;
+      --muted-foreground: 176 19% 14%;
+    }
+  }
+
+  @media (prefers-contrast: more) and (prefers-color-scheme: dark) {
+    :root {
+      --border: 159 8% 64%;
+      --muted-foreground: 90 11% 89%;
+    }
+  }
+
+  @media (prefers-contrast: more) {
+    :root[data-theme="light"] {
+      --border: 167 8% 35%;
+      --muted-foreground: 176 19% 14%;
+    }
+
+    :root[data-theme="dark"] {
+      --border: 159 8% 64%;
+      --muted-foreground: 90 11% 89%;
     }
   }
 }

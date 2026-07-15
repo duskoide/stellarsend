@@ -152,3 +152,68 @@ describe("the slip shadow is a token, not a dark: variant", () => {
     expect(must(darkMedia, "slip-shadow")).toBe("none");
   });
 });
+
+describe("prefers-contrast: more", () => {
+  // A theme is active one of four ways, and the high-contrast overrides must
+  // cover all four independently — this is exactly what the original bug
+  // missed: a single `:root` block leaked stale, near-invisible values into
+  // dark mode, and was silently unreachable once a theme was chosen via
+  // `:root[data-theme]` (0,2,0 always beats the media block's 0,1,0).
+  //
+  // Locate each block with the same indexOf + tokensAfter approach blockAfter
+  // uses internally, but with an explicit `from` — `blockAfter` alone always
+  // matches the FIRST occurrence of a needle, and ":root[data-theme=...]"
+  // each appear twice in this file (once in the real theme block, once here).
+  const hcDarkMediaMarker = css.indexOf(
+    "prefers-contrast: more) and (prefers-color-scheme: dark)",
+  );
+  // The literal "prefers-contrast: more) {" (bare media, no "and ...") occurs
+  // twice: once for the light default :root override, once opening the block
+  // that holds both attribute overrides. Searching from after the dark-media
+  // block skips the first and lands on the second.
+  const hcAttrMarker = css.indexOf("prefers-contrast: more) {", hcDarkMediaMarker);
+
+  const hcLight = blockAfter("prefers-contrast: more) {");
+  const hcDarkMedia = blockAfter("prefers-contrast: more) and (prefers-color-scheme: dark)");
+  const hcLightAttr = tokensAfter(css.indexOf(':root[data-theme="light"]', hcAttrMarker));
+  const hcDarkAttr = tokensAfter(css.indexOf(':root[data-theme="dark"]', hcAttrMarker));
+
+  const CASES = [
+    ["light default :root", hcLight, light],
+    ["light :root[data-theme=light]", hcLightAttr, lightAttr],
+    ["dark prefers-color-scheme media", hcDarkMedia, darkMedia],
+    ["dark :root[data-theme=dark]", hcDarkAttr, darkAttr],
+  ] as const;
+
+  it.each(CASES)(
+    "%s: --muted-foreground clears 4.5:1 (WCAG AA) on background/surface/muted",
+    (_name, hc, base) => {
+      for (const ground of ["background", "surface", "muted"] as const) {
+        expect(
+          contrast(must(hc, "muted-foreground"), must(base, ground)),
+        ).toBeGreaterThanOrEqual(4.5);
+      }
+    },
+  );
+
+  it.each(CASES)(
+    "%s: --border clears 3:1 (WCAG 1.4.11 non-text) on background",
+    (_name, hc, base) => {
+      expect(contrast(must(hc, "border"), must(base, "background"))).toBeGreaterThanOrEqual(3);
+    },
+  );
+
+  it("no high-contrast value is the old corporate-blue leftover (regression)", () => {
+    for (const hc of [hcLight, hcLightAttr, hcDarkMedia, hcDarkAttr]) {
+      expect(must(hc, "border")).not.toBe("215 16% 40%");
+      expect(must(hc, "muted-foreground")).not.toBe("222 47% 11%");
+    }
+  });
+
+  it("the explicit-theme attribute overrides match their bare/media counterparts", () => {
+    // If these drift, a toggle user and an OS-preference user get different
+    // high-contrast treatments for the same theme.
+    expect(hcLightAttr).toEqual(hcLight);
+    expect(hcDarkAttr).toEqual(hcDarkMedia);
+  });
+});
