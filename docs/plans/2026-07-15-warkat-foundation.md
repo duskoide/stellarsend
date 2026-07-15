@@ -419,25 +419,43 @@ muted-foreground on muted failed at 4.20, so it darkens to #53615E."
 ## Task 2: Typography
 
 **Files:**
-- Modify: `apps/web/src/app/layout.tsx:8-24`
+- Modify: `apps/web/src/app/layout.tsx` (line 2 import; lines 9-27 font constants; line 40 `<html>` className)
+- Modify: `apps/web/tailwind.config.ts` (the `fontFamily.mono` entry)
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `--font-sans` (Inter), `--font-display` (Source Serif 4), `--font-mono` (Geist Mono). `tailwind.config.ts` already maps these to `font-sans` / `font-display` / `font-mono` — **no Tailwind change needed.**
+- Produces: `--font-sans` (Inter), `--font-display` (Source Serif 4), `--font-geist-mono` (Geist Mono). Tailwind's `font-sans` / `font-display` / `font-mono` classes resolve to these.
+
+> **Geist Mono is NOT in `next/font/google` on Next 14.2.35.** Verified empirically before this task was dispatched — importing `Geist_Mono` fails with:
+> `TS2305: Module '"next/font/google/index.js"' has no exported member 'Geist_Mono'`.
+> It postdates this Next version's bundled font list. `Inter` and `Source_Serif_4` are both present and compile fine.
+>
+> The fix is Vercel's official **`geist` package** — already installed (`geist@1.7.2`, SIL Open Font License) — which ships Geist Mono with `next/font` integration. This preserves the approved design instead of substituting a different mono.
+>
+> **`geist` hardcodes its variable as `--font-geist-mono`; the name is not configurable** (see `node_modules/geist/dist/mono.js:5`). So there is no `--font-mono`, and `tailwind.config.ts` must point at `--font-geist-mono` directly.
+>
+> **Do NOT alias it inside the `:root` block in `globals.css`.** That block is parsed by `tests/tokens.test.ts`, and an extra custom property there breaks the theme-parity assertions (`lightAttr` would not match `:root`). The Tailwind config is the right place.
 
 - [ ] **Step 1: Swap the font imports**
 
-In `apps/web/src/app/layout.tsx`, replace line 2 (the `next/font/google` import), then lines 9–27 (the comment plus the three font constants), with:
+`geist` is already in `apps/web/package.json` — do not re-add it. In `apps/web/src/app/layout.tsx`, replace line 2 (the `next/font/google` import) with:
 
 ```ts
-import { Inter, Source_Serif_4, Geist_Mono } from "next/font/google";
+import { Inter, Source_Serif_4 } from "next/font/google";
+import { GeistMono } from "geist/font/mono";
 ```
+
+Then replace lines 9-27 (the "Corporate design system type scale" comment plus the three font constants) with:
 
 ```ts
 // Warkat type system — see docs/specs/2026-07-15-warkat-frontend-design.md §3.
 // Inter carries body/UI. Source Serif 4 brings the document register Inter
 // deliberately lacks. Geist Mono strikes the figures — grotesk-structured, so
 // it reads as Inter's sibling rather than a code font that wandered in.
+//
+// Geist Mono comes from Vercel's `geist` package, not next/font/google: it is
+// absent from Next 14's bundled font list. It exposes --font-geist-mono, a name
+// it does not let us change, so tailwind.config.ts points font-mono at that.
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
@@ -449,37 +467,60 @@ const sourceSerif = Source_Serif_4({
   variable: "--font-display",
   display: "swap",
 });
-const geistMono = Geist_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-mono",
-  display: "swap",
-});
 ```
 
-- [ ] **Step 2: Update the variable references**
+- [ ] **Step 2: Update the `<html>` variable list**
 
-`layout.tsx:40` composes the three font variables onto `<html>`. Replace it:
+`layout.tsx:40` composes the font variables onto `<html>`. Replace it:
 
 ```tsx
-    <html lang="en" className={`${inter.variable} ${sourceSerif.variable} ${geistMono.variable}`}>
+    <html lang="en" className={`${inter.variable} ${sourceSerif.variable} ${GeistMono.variable}`}>
 ```
 
-- [ ] **Step 3: Typecheck**
+> `GeistMono` is an object imported from the package, not a function you call — there is no `geistMono` constant to declare.
+
+- [ ] **Step 3: Point Tailwind's `font-mono` at the Geist variable**
+
+In `apps/web/tailwind.config.ts`, in `theme.extend.fontFamily`, replace the `mono` entry:
+
+```ts
+        // Geist Mono ships its own CSS variable name from the `geist` package
+        // and does not allow renaming it, so point at --font-geist-mono rather
+        // than aliasing inside globals.css (whose :root block is parsed by
+        // tests/tokens.test.ts and must contain only theme tokens).
+        mono: ["var(--font-geist-mono)", "ui-monospace", "monospace"],
+```
+
+Leave `sans` and `display` exactly as they are.
+
+- [ ] **Step 4: Typecheck**
 
 Run: `pnpm --filter web typecheck`
-Expected: no errors. A failure here means a stale `openSans` / `poppins` / `plexMono` reference survives.
+Expected: no errors. A failure here means a stale `openSans` / `poppins` / `plexMono` reference survives, or `GeistMono` is being called as a function.
 
-- [ ] **Step 4: Verify the fonts actually load**
+- [ ] **Step 5: Tokens still pass**
 
-Run: `pnpm --filter web dev`, open `http://localhost:3000`.
-Expected: headings render in a serif (Source Serif 4), body in Inter. In devtools → Network, filter `font` — you should see three families fetched. **A silent fallback to system-ui looks fine at a glance and is the failure mode to watch for.**
+Run: `pnpm --filter web test`
+Expected: still passing, unchanged count. If theme-parity assertions break, you added a property to a `:root` token block — move it to the Tailwind config instead.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Verify the fonts actually load**
+
+Run `pnpm --filter web dev`, open `http://localhost:3000`.
+
+Expected: headings render in a serif (Source Serif 4), body in Inter, and any `font-mono` element in Geist Mono. In devtools → Network, filter by `font` — you should see the families fetched. **A silent fallback to system-ui looks fine at a glance and is the failure mode to watch for**, so confirm in the Computed panel that `font-family` resolves to the real family names, not `system-ui`.
+
+For the mono specifically, check an element with `font-mono` — Geist Mono is served from the package (self-hosted by Next), not from Google's CDN, so it will appear as a local `/_next/static/media/...` request rather than a `fonts.gstatic.com` one. That is expected and is one of its advantages: no third-party runtime dependency during the demo.
+
+- [ ] **Step 7: Commit**
 
 ```bash
-git add apps/web/src/app/layout.tsx
-git commit -m "feat(web): Inter / Source Serif 4 / Geist Mono type system"
+git add apps/web/src/app/layout.tsx apps/web/tailwind.config.ts apps/web/package.json pnpm-lock.yaml
+git commit -m "feat(web): Inter / Source Serif 4 / Geist Mono type system
+
+Geist Mono is absent from next/font/google on Next 14.2.35, so it comes from
+Vercel's official geist package (SIL OFL) instead. It exposes --font-geist-mono
+and will not let us rename it, so tailwind's font-mono points there directly
+rather than aliasing in globals.css, whose :root block the token tests parse."
 ```
 
 ---

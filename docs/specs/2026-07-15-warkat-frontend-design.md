@@ -104,9 +104,13 @@ one exception is the 50% swap button, which is a physical control on the slip, n
 | Eyebrow (`.lbl`) | Geist Mono | 9px · uppercase, `0.13em` |
 | Slip figures | Geist Mono | 12.5px · 500, `tabular-nums` |
 
-All three load via `next/font/google` in `layout.tsx`, exactly as the current three do. `--font-sans` → Inter,
-`--font-display` → Source Serif 4, `--font-mono` → Geist Mono. The `tailwind.config.ts` `fontFamily` block needs
-no change; only the imports in `layout.tsx` change.
+Inter and Source Serif 4 load via `next/font/google` in `layout.tsx` (`--font-sans`, `--font-display`).
+**Geist Mono does not**: it is absent from `next/font/google` on Next 14.2.35 (verified — `Geist_Mono` is not an
+exported member). It comes from Vercel's official `geist` package (SIL OFL) instead, which self-hosts it and so
+removes a third-party runtime dependency during the demo. That package hardcodes `--font-geist-mono` and will not
+let us rename it, so `tailwind.config.ts` maps `font-mono` to `--font-geist-mono` directly. It must **not** be
+aliased inside the `:root` token block — that block is parsed by `tests/tokens.test.ts` and must contain only
+theme tokens.
 
 **Every figure gets `font-variant-numeric: tabular-nums`.** Amounts are compared down a column; digits must not
 dance. This also matters for the polling status screen, where a changing timestamp must not reflow the row.
