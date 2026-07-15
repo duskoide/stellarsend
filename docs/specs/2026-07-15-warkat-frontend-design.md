@@ -113,9 +113,9 @@ dance. This also matters for the polling status screen, where a changing timesta
 
 ## 4. Colour semantics — a conflict, resolved
 
-The mockup has a collision the spec corrects. In it, red is simultaneously **brand** (active nav, links,
-"Change") and **the validation stamp** and **the error state** (the blocked-recipient panel). When red is
-everywhere, a red error cannot stand out — the colour stops carrying meaning.
+The first cut of this direction had a collision. Red was simultaneously **brand** (active nav, links, "Change"),
+**the validation stamp**, and **the error state** (the blocked-recipient panel). When red is everywhere, a red
+error cannot stand out — the colour stops carrying meaning and becomes decoration.
 
 **Resolution: red becomes rare.**
 
@@ -129,9 +129,11 @@ everywhere, a red error cannot stand out — the colour stops carrying meaning.
   about to expire. The blocked-recipient panel moves from red to amber.
 - **Navigation and links use ink.** Active nav = ink + weight + a 2px ink rule. Links = ink + underline.
 
-**Consequence:** the mockup renders active nav, tab bar, "Verify on Stellar Expert →", and "Change" in red.
-All become ink. This is a real visual change from the approved mockup — flagged for review, not slipped in.
-The stamp keeps its red, which is the only place the boldness is spent.
+**Consequence:** active nav, tab bar, "Verify on Stellar Expert →", and "Change" move from red to ink; the
+blocked-recipient panel moves from red to amber; the current custody step moves from red to ink. This was a real
+visual change from the first approved mockup, and **the mockup has been updated to match** — red now appears in
+exactly two places in its stylesheet, the token definition and the `.stamp` rule. The stamp keeps its red, which
+is the only place the boldness is spent.
 
 ---
 
@@ -190,10 +192,9 @@ The stamp reports state and elapsed time (`SETTLED` / `ON-CHAIN · 4.8s`). Elaps
 computation at `status/[id]/page.tsx:23`, which is already correct — first event to `COMPLETED`.
 
 Chain of custody renders the real `transferEvents` rows against `TRANSFER_STEPS`, each with its real timestamp:
-**green dot = done, filled ink dot + bold label = current, hollow outline = pending.** (The mockup renders the
-current step in red; that contradicts §4 and is corrected here — current is ink. Position and label weight
-carry the state alongside the colour.) **No fabricated steps** — if an event has not been written, it renders
-as pending.
+**green dot = done, filled ink dot + bold label = current, hollow outline = pending.** Position and label weight
+carry the state alongside the colour, so the step is legible without it. **No fabricated steps** — if an event
+has not been written, it renders as pending.
 
 ### 6.3 Claim — the receipt
 
@@ -253,8 +254,9 @@ Testable, not aspirational. The current `globals.css` already earns most of this
 
 - Every control boundary is `--foreground`, never `--border`. Verified by inspection of `.sel`, `.btn`, inputs.
 - All text tokens meet AA against both paper and card — measured in §3; re-measure if any value moves.
-- Touch targets ≥ 44px. The 30px swap button in the mockup **fails this** and must ship at 44px with the visual
-  circle inset — flagged because it is the kind of thing that survives to production unnoticed.
+- Touch targets ≥ 44px (WCAG 2.5.8). The swap button is the trap: its visual circle is 30px, so the **44px hit
+  area must be the button and the circle inset inside it**, never the other way round. Corrected in the mockup;
+  it is the kind of thing that survives to production unnoticed.
 - `:focus-visible` ring preserved from the existing `globals.css`, on every control including the pair buttons
   and swap.
 - The pair buttons are real `<button>`s with accessible names ("Change source currency, currently VND").
