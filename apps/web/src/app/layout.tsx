@@ -3,7 +3,7 @@ import { Inter, Source_Serif_4 } from "next/font/google";
 import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { Providers } from "./providers";
-import NavBar from "@/components/NavBar";
+import AppShell from "@/components/AppShell";
 
 export const runtime = "edge";
 
@@ -40,8 +40,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${sourceSerif.variable} ${GeistMono.variable}`}>
       <body>
-        <NavBar />
-        <Providers>{children}</Providers>
+        <Providers>
+          <AppShell>{children}</AppShell>
+        </Providers>
       </body>
     </html>
   );
