@@ -39,6 +39,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.variable} ${sourceSerif.variable} ${GeistMono.variable}`}>
+      <head>
+        <script
+          // Runs before first paint: without it the page renders with the OS
+          // theme and then snaps to the stored choice — a visible flash on
+          // every load. Deliberately not a component: React would be too late.
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark"){document.documentElement.setAttribute("data-theme",t);}}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body>
         <Providers>
           <AppShell>{children}</AppShell>

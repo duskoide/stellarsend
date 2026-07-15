@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { getToken, clearToken } from "@/lib/api";
+import { ThemeToggle } from "./ThemeToggle";
 
 // Pages with no navigation. Claim is here on purpose: the recipient is not
 // the account holder in spirit, so the claim screen is a standalone receipt.
@@ -14,6 +15,7 @@ const isBare = (p: string) => BARE_PATHS.includes(p) || p.startsWith("/claim/");
 const DESTINATIONS = [
   { href: "/send", label: "Send", icon: "✎" },
   { href: "/history", label: "History", icon: "☰" },
+  { href: "/account", label: "Account", icon: "◍" },
 ] as const;
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -64,10 +66,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
           ))}
         </div>
-        <div className="mt-auto flex items-center gap-2 border-t border-border pt-2.5">
+        <div className="mt-auto flex flex-col gap-0.5 border-t border-border pt-2">
+          <ThemeToggle />
           <button
             onClick={logout}
-            className="min-h-11 rounded-md px-2 text-left text-xs text-muted-foreground underline hover:text-foreground"
+            className="flex min-h-11 items-center rounded-md px-2 text-left text-xs text-muted-foreground underline hover:text-foreground"
           >
             Log out
           </button>
@@ -103,13 +106,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             {d.label}
           </Link>
         ))}
-        <button
-          onClick={logout}
-          className="flex min-h-[3.25rem] flex-1 flex-col items-center justify-center gap-0.5 font-mono text-[10px] text-muted-foreground"
-        >
-          <span aria-hidden className="text-[15px] leading-tight">◍</span>
-          Account
-        </button>
       </nav>
     </div>
   );
