@@ -17,12 +17,14 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={disabled || loading}
         aria-busy={loading || undefined}
         className={clsx(
-          "inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium",
-          "transition-colors disabled:pointer-events-none disabled:opacity-50",
+          "inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold",
+          "transition-colors disabled:pointer-events-none disabled:opacity-40",
+          // Every control's border is --foreground. --border is 1.35:1 and
+          // fails WCAG 1.4.11 for control boundaries. See spec §3.
           variant === "primary" &&
             "bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/95",
           variant === "secondary" &&
-            "bg-muted text-foreground hover:bg-muted/70 active:bg-muted/80",
+            "border border-foreground bg-transparent text-foreground hover:bg-muted active:bg-muted/80",
           variant === "ghost" &&
             "bg-transparent text-foreground hover:bg-muted active:bg-muted/80",
           variant === "danger" &&

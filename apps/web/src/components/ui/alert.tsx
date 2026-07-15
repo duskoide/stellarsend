@@ -1,10 +1,12 @@
 import clsx from "clsx";
 
+// Warkat semantics (spec §4): red is rare — alerts and stamps only.
+// "info" is ink, not a brand hue: an informational note on paper is just ink.
 const VARIANT = {
-  success: "border-success/20 bg-success/10 text-success",
-  warning: "border-warning/20 bg-warning/10 text-warning",
-  danger: "border-danger/20 bg-danger/10 text-danger",
-  info: "border-primary/20 bg-primary/10 text-primary",
+  success: "border-success/30 bg-success/10 text-success",
+  warning: "border-warning/40 bg-warning/10 text-warning",
+  danger: "border-danger/40 bg-danger/10 text-danger",
+  info: "border-foreground/20 bg-muted text-foreground",
   neutral: "border-border bg-muted text-muted-foreground",
 } as const;
 
