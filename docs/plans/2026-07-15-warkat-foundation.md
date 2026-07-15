@@ -802,8 +802,8 @@ thumb reach with logout beside primary destinations."
 ## Task 5: Theme toggle
 
 **Files:**
-- Create: `apps/web/src/components/ThemeToggle.tsx`
-- Modify: `apps/web/src/app/layout.tsx` (no-flash script), `apps/web/src/components/AppShell.tsx` (mount the toggle)
+- Create: `apps/web/src/components/ThemeToggle.tsx`, `apps/web/src/app/(sender)/account/page.tsx`
+- Modify: `apps/web/src/app/layout.tsx` (no-flash script), `apps/web/src/components/AppShell.tsx` (mount the toggle; point the mobile Account tab at the new page)
 
 **Interfaces:**
 - Consumes: the `data-theme` blocks from Task 1; `AppShell` from Task 4.
@@ -913,7 +913,68 @@ In the **desktop rail**, replace the `<div className="mt-auto flex items-center 
         </div>
 ```
 
-The mobile bar keeps its Account button — a theme control does not belong in a tab bar of three destinations, and there is no account screen in this plan to host it. **So on mobile the toggle is unreachable: a mobile user follows their OS and cannot override it.** That is a real gap in a mobile-first app, not a rounding error. It is recorded in Task 11 and is the obvious candidate for the next slice (an account screen). Do not solve it by wedging a fourth item into the tab bar.
+**Also build a minimal `/account` screen, and point the mobile tab at it.** This resolves two problems the Task 4 review surfaced:
+
+1. The mobile bar's third tab is labelled **"Account" but only logs you out** — there is no account screen. That is a mislabel, and a regression in exposure: the old `NavBar` had logout as a small side link, whereas this bar gives it a full-width tab in the thumb zone, sized like Send and History, with no confirmation. A stray tap costs the session.
+2. The theme toggle otherwise lives only in the desktop rail, leaving mobile users unable to override their OS — a real gap in a mobile-first app.
+
+One small screen fixes both. Create `apps/web/src/app/(sender)/account/page.tsx`:
+
+```tsx
+"use client";
+
+import { useRouter } from "next/navigation";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { Button } from "@/components/ui/button";
+import { Slip } from "@/components/Slip";
+import { clearToken } from "@/lib/api";
+
+export default function AccountPage() {
+  const router = useRouter();
+
+  return (
+    <main className="mx-auto flex w-full max-w-[460px] flex-col gap-3.5 px-4 py-6 md:py-10">
+      <div className="flex items-baseline justify-between border-b-2 border-foreground pb-2">
+        <h1 className="font-display text-base font-bold">Account</h1>
+      </div>
+
+      <Slip className="flex flex-col gap-1">
+        <span className="font-mono text-[9px] uppercase tracking-[0.13em] text-muted-foreground">
+          Appearance
+        </span>
+        <ThemeToggle className="-ml-2" />
+      </Slip>
+
+      {/* Logout is destructive and deliberately NOT a primary tab: it lives here,
+          one level in, where a stray thumb cannot reach it. */}
+      <Button
+        variant="secondary"
+        className="w-full"
+        onClick={() => {
+          clearToken();
+          router.push("/");
+        }}
+      >
+        Log out
+      </Button>
+    </main>
+  );
+}
+```
+
+> `Slip` comes from Task 6, which runs after this one. **If Task 6 has not landed yet, use a plain `<div className="rounded-md border border-border bg-surface p-3">` instead and leave a `TODO(next): use Slip once Task 6 lands`** — do not invent your own Slip.
+
+Then in `AppShell.tsx`, make Account a real destination rather than a disguised logout button. Add it to `DESTINATIONS`:
+
+```tsx
+const DESTINATIONS = [
+  { href: "/send", label: "Send", icon: "✎" },
+  { href: "/history", label: "History", icon: "☰" },
+  { href: "/account", label: "Account", icon: "◍" },
+] as const;
+```
+
+and **delete the mobile bar's `<button onClick={logout}>`** entirely — the bar becomes three `DESTINATIONS` links. The desktop rail keeps its own logout button in the footer alongside the toggle (a rail is not a thumb zone), so `logout` stays in use there.
 
 - [ ] **Step 4: Typecheck**
 
