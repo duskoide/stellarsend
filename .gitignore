@@ -23,6 +23,15 @@ next-env.d.ts
 .wrangler/
 .dev.vars
 
+# ── pi coding agent local state ─────────────
+# SKILL.md is vendored into the repo on purpose; only ignore runtime state.
+# .pi/superpowers-state.json is per-machine harness state (never commit).
+# .pi/skills/ IS tracked (committed design-system SKILL.md).
+.pi/superpowers-state.json
+.pi/agents/
+.pi/state*
+# (intentionally NOT ignoring .pi/skills/ — that file is committed.)
+
 # ── Local database (Turso / libSQL) ─────────
 # Dev DB is a local file (TURSO_URL=file:./local.db per spec §10)
 *.db
