@@ -315,7 +315,7 @@ export default function SendPage() {
             <SlipLine label="Rate" value={`1 ${sourceAsset} = ${quote.data.exchangeRate} ${destAsset}`} />
             <SlipLine label="Our fee (0,005%)" value={formatFee(quote.data.feeAmount, sourceAsset)} />
             {/* 100 stroops = 0.00001 XLM. NOT dollars — see spec §11. */}
-            <SlipLine label="Network fee" value="0,00001 XLM" />
+            <SlipLine label="Network fee" value="0.00001 XLM" />
             <SlipLine
               label="They receive"
               value={formatCurrency(quote.data.destAmount, destAsset)}
