@@ -15,7 +15,13 @@ import type {
   TransferWithEvents,
 } from "@stellarsend/shared";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787/api/v1";
+// Pages builds can be deployed without build-time environment variables. Keep local
+// development on the Worker dev server, but point production builds at the deployed API.
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ??
+  (process.env.NODE_ENV === "production"
+    ? "https://stellarsend-api.18224079.workers.dev/api/v1"
+    : "http://localhost:8787/api/v1");
 
 // What POST /transfers/:id/submit actually returns (see api/src/routes/transfer.ts).
 export interface SubmitResponse {

@@ -11,8 +11,11 @@ import { Alert } from "@/components/ui/alert";
 import { useQuote } from "@/hooks/useQuote";
 import { api, getToken } from "@/lib/api";
 import {
+  ASSET_CODE,
   FIAT_ASSET_CODES,
+  PAYOUT_METHOD,
   type FiatAssetCode,
+  type PayoutMethod,
 } from "@stellarsend/shared/constants";
 import type { Beneficiary } from "@stellarsend/shared";
 
@@ -29,48 +32,82 @@ export default function SendPage() {
   const router = useRouter();
   const recipientId = useId();
   const [amount, setAmount] = useState("100");
-  const [sourceAsset, setSourceAsset] = useState<FiatAssetCode>("VND");
-  const [destAsset, setDestAsset] = useState<FiatAssetCode>("IDR");
+  const [sourceAsset, setSourceAsset] = useState<FiatAssetCode>(ASSET_CODE.VND);
+  const [destAsset, setDestAsset] = useState<FiatAssetCode>(ASSET_CODE.IDR);
   const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
   const [beneficiaryId, setBeneficiaryId] = useState("");
+  const [beneficiaryLoading, setBeneficiaryLoading] = useState(true);
+  const [beneficiaryError, setBeneficiaryError] = useState<string | null>(null);
   const [showNewBen, setShowNewBen] = useState(false);
-  const [newBen, setNewBen] = useState({ fullName: "", bankName: "", accountNumber: "" });
+  const [addingBeneficiary, setAddingBeneficiary] = useState(false);
+  const [newBen, setNewBen] = useState<{
+    fullName: string;
+    bankName: string;
+    accountNumber: string;
+    method: PayoutMethod;
+  }>({ fullName: "", bankName: "", accountNumber: "", method: "BANK_TRANSFER" });
   const [step, setStep] = useState<Step>("idle");
   const [error, setError] = useState<string | null>(null);
   const quote = useQuote();
 
   // Load the user's saved recipients so nobody has to paste an opaque ID.
   useEffect(() => {
+    let cancelled = false;
     if (!getToken()) {
       router.push("/auth/login");
       return;
     }
+
+    setBeneficiaryLoading(true);
+    setBeneficiaryError(null);
     api.beneficiaries
       .list()
       .then((list) => {
+        if (cancelled) return;
         setBeneficiaries(list);
         if (list[0]) setBeneficiaryId(list[0].id);
         else setShowNewBen(true);
       })
-      .catch(() => setShowNewBen(true));
+      .catch((err) => {
+        if (cancelled) return;
+        setBeneficiaryError(
+          err instanceof Error ? err.message : "Could not load saved recipients",
+        );
+        setShowNewBen(true);
+      })
+      .finally(() => {
+        if (!cancelled) setBeneficiaryLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   const handleAddBeneficiary = async () => {
     setError(null);
+    setAddingBeneficiary(true);
     try {
       const created = await api.beneficiaries.create({
         fullName: newBen.fullName,
-        method: "BANK_TRANSFER",
+        method: newBen.method,
         bankName: newBen.bankName,
         accountNumber: newBen.accountNumber,
       });
       setBeneficiaries((b) => [...b, created]);
       setBeneficiaryId(created.id);
       setShowNewBen(false);
-      setNewBen({ fullName: "", bankName: "", accountNumber: "" });
+      setNewBen({ fullName: "", bankName: "", accountNumber: "", method: "BANK_TRANSFER" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not add recipient");
+    } finally {
+      setAddingBeneficiary(false);
     }
+  };
+
+  const handleCancelNewBeneficiary = () => {
+    setError(null);
+    setShowNewBen(false);
   };
 
   const handleGetQuote = () => {
@@ -174,7 +211,11 @@ export default function SendPage() {
           <label htmlFor={recipientId} className="text-sm font-medium text-muted-foreground">
             Recipient
           </label>
-          {beneficiaries.length > 0 && !showNewBen && (
+          {beneficiaryLoading && (
+            <p className="text-sm text-muted-foreground">Loading saved recipients…</p>
+          )}
+          {beneficiaryError && <Alert variant="danger">{beneficiaryError}</Alert>}
+          {!beneficiaryLoading && beneficiaries.length > 0 && !showNewBen && (
             <>
               <select
                 id={recipientId}
@@ -190,7 +231,10 @@ export default function SendPage() {
               </select>
               <button
                 type="button"
-                onClick={() => setShowNewBen(true)}
+                onClick={() => {
+                  setError(null);
+                  setShowNewBen(true);
+                }}
                 className="rounded-sm text-xs text-primary underline"
               >
                 + Add a new recipient
@@ -206,9 +250,31 @@ export default function SendPage() {
                 value={newBen.fullName}
                 onChange={(e) => setNewBen({ ...newBen, fullName: e.target.value })}
               />
+              <label
+                htmlFor={`${recipientId}-method`}
+                className="block text-sm font-medium text-muted-foreground"
+              >
+                Payout method
+              </label>
+              <select
+                id={`${recipientId}-method`}
+                value={newBen.method}
+                onChange={(e) =>
+                  setNewBen({ ...newBen, method: e.target.value as PayoutMethod })
+                }
+                className="min-h-11 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground"
+              >
+                {PAYOUT_METHOD.map((method) => (
+                  <option key={method} value={method}>
+                    {method === "BANK_TRANSFER" ? "Bank transfer" : "E-wallet"}
+                  </option>
+                ))}
+              </select>
               <Input
-                aria-label="Bank name"
-                placeholder="Bank (e.g. BCA)"
+                aria-label={newBen.method === "EWALLET" ? "Wallet provider" : "Bank name"}
+                placeholder={
+                  newBen.method === "EWALLET" ? "Wallet provider (e.g. GCash)" : "Bank (e.g. BCA)"
+                }
                 value={newBen.bankName}
                 onChange={(e) => setNewBen({ ...newBen, bankName: e.target.value })}
               />
@@ -222,15 +288,21 @@ export default function SendPage() {
                 <Button
                   className="flex-1"
                   onClick={handleAddBeneficiary}
-                  disabled={!newBen.fullName || !newBen.accountNumber}
+                  loading={addingBeneficiary}
+                  disabled={
+                    !newBen.fullName.trim() ||
+                    !newBen.bankName.trim() ||
+                    !newBen.accountNumber.trim()
+                  }
                 >
-                  Save recipient
+                  {addingBeneficiary ? "Saving…" : "Save recipient"}
                 </Button>
                 {beneficiaries.length > 0 && (
                   <Button
                     variant="secondary"
                     className="flex-1"
-                    onClick={() => setShowNewBen(false)}
+                    onClick={handleCancelNewBeneficiary}
+                    disabled={addingBeneficiary}
                   >
                     Cancel
                   </Button>
@@ -262,7 +334,7 @@ export default function SendPage() {
             className="w-full"
             onClick={handleConfirm}
             loading={busy}
-            disabled={!beneficiaryId}
+            disabled={!beneficiaryId || showNewBen}
           >
             {STEP_LABEL[step]}
           </Button>

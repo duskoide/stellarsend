@@ -31,6 +31,8 @@ next-env.d.ts
 *.db-journal
 *.sqlite3-journal
 local.db
+*.db-shm
+*.db-wal
 
 # ── Env / secrets ───────────────────────────
 .env

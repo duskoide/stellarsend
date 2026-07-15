@@ -7,10 +7,23 @@ import { createDb, schema } from "../db/client.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { badRequest, notFound } from "../utils/errors.js";
 import { id } from "../utils/id.js";
-import type { CreateBeneficiaryRequest } from "@stellarsend/shared";
+import type { Beneficiary, CreateBeneficiaryRequest } from "@stellarsend/shared";
+import { PAYOUT_METHOD } from "@stellarsend/shared/constants";
 
 const beneficiary = new Hono<AppContext>();
 beneficiary.use("*", authMiddleware);
+
+function toBeneficiary(row: typeof schema.beneficiaries.$inferSelect): Beneficiary {
+  return {
+    id: row.id,
+    ownerId: row.ownerId,
+    fullName: row.fullName,
+    method: row.method,
+    bankName: row.bankName,
+    accountNumber: row.accountNumber,
+    createdAt: row.createdAt.getTime(),
+  };
+}
 
 beneficiary.get("/", async (c) => {
   const db = createDb(c.env);
@@ -19,25 +32,37 @@ beneficiary.get("/", async (c) => {
     .from(schema.beneficiaries)
     .where(eq(schema.beneficiaries.ownerId, c.get("userId")))
     .all();
-  return c.json(rows);
+  return c.json(rows.map(toBeneficiary));
 });
 
 beneficiary.post("/", async (c) => {
   const body = await c.req.json<CreateBeneficiaryRequest>();
-  if (!body.fullName || !body.accountNumber || !body.method) {
-    throw badRequest("fullName, accountNumber, method required");
+  const fullName = body.fullName?.trim();
+  const bankName = body.bankName?.trim();
+  const accountNumber = body.accountNumber?.trim();
+  if (!fullName || !bankName || !accountNumber || !body.method) {
+    throw badRequest("fullName, method, bankName, and accountNumber are required");
   }
+  if (!PAYOUT_METHOD.includes(body.method)) {
+    throw badRequest("Unsupported payout method");
+  }
+
   const db = createDb(c.env);
   const row = {
     id: id("ben"),
     ownerId: c.get("userId"),
-    fullName: body.fullName,
+    fullName,
     method: body.method,
-    bankName: body.bankName,
-    accountNumber: body.accountNumber,
+    bankName,
+    accountNumber,
   };
   await db.insert(schema.beneficiaries).values(row);
-  return c.json(row, 201);
+  const created = await db
+    .select()
+    .from(schema.beneficiaries)
+    .where(eq(schema.beneficiaries.id, row.id))
+    .get();
+  return c.json(toBeneficiary(created!), 201);
 });
 
 beneficiary.delete("/:id", async (c) => {
