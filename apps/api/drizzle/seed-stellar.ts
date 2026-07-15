@@ -236,7 +236,7 @@ async function main() {
         limit: market.distributorAmount,
       }),
     ),
-    "distributor -> IDR + VND + PHP",
+    "distributor -> all local assets",
   );
   await submit(
     anchor,
@@ -246,7 +246,7 @@ async function main() {
         limit: "100000000000",
       }),
     ),
-    "receiving anchor -> IDR + VND + PHP",
+    "receiving anchor -> all local assets",
   );
   await submit(
     mm,
@@ -258,7 +258,7 @@ async function main() {
         limit: "500000000000",
       }),
     ),
-    "market maker -> IDR + VND + PHP",
+    "market maker -> all local assets",
   );
 
   console.log("\n3. Issuing demo local assets...");
@@ -285,7 +285,9 @@ async function main() {
   // Both sides of every XLM/local market are required for a route:
   // source local -> XLM consumes local sell offers, while XLM -> destination
   // consumes XLM sell offers.
-  const levelMultipliers = ["1", "1.01", "1.02"];
+  // Two price levels keep the offer count low enough to fit within friendbot's
+  // 10,000 XLM funding while still giving a modest spread for path discovery.
+  const levelMultipliers = ["1", "1.02"];
   const bridgeOffers = markets.flatMap((market) =>
     levelMultipliers.flatMap((multiplier) => {
       const localPerXlm = new Decimal(market.localPerXlm);
@@ -297,7 +299,7 @@ async function main() {
         {
           selling: XLM,
           buying: market.asset,
-          amount: "250",
+          amount: "300",
           price: localPerXlm.mul(level).toFixed(7),
         },
         {
