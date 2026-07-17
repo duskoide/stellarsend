@@ -43,6 +43,9 @@ local.db
 *.db-shm
 *.db-wal
 
+# ── direnv ───────────────────────────────
+.direnv/
+
 # ── Env / secrets ───────────────────────────
 .env
 .env.local
